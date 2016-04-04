@@ -137,13 +137,10 @@ void main() {
     start = strdup("foo [[concat up per] fie] fum");
     printf("%s\n", start);
     do {
-        out = malloc(SIZE);//calloc(SIZE, 0);
+        out = malloc(SIZE);
         memset(out, 0, SIZE);
         end = out + SIZE; // TODO: not used...
-        //printf(" IN:::%s:::\n", start);
-        //printf("   :::");
         if (!run()) break;
-        //printf("\nOUT:::%s:::\n", out);
         free(start);
         start = out;
     } while (1);
