@@ -61,6 +61,7 @@ int functions_count = 0;
 
 // TODO: how to handle closures/RAM and GC?
 void fundef(char* funname, char* args, char* body) {
+    printf("\nFUNDEF: %s[%s]>>>%s<<<\n", funname, args, body);
     if (functions_count > SIZE) { printf("OUT OF FUNCTIONS!\n"); exit(1); }
     FunDef *f = &functions[functions_count++];
     // take a copy as the data comes from transient current state of program
@@ -69,10 +70,40 @@ void fundef(char* funname, char* args, char* body) {
     f->body = strdup(body);
 }
 
+FunDef* findfun(char* funname) {
+    FunDef *f = &functions[0];
+    while (f->name) {
+        if (!strcmp(funname, f->name)) return f;
+        f++;
+    }
+    return NULL;
+}
+
 // TODO: find macros to FunDef above...  [macro FUN ARGS]...[/macro]
 // TODO: find temporary func/closures... [func ARGS]...[/func], only store in RAM and get rid of between runs...
 // and ... [data ID DATA] [get ID] [history ID] gives id: [dir MATCHID] [find DTA] [search DTA]
-void removefuns() {
+// modifies input by removing defs.. in place
+void removefuns(char* s) {
+    char *m = s, *p;
+    while (m = p = strstr(m, "[macro ")) {
+        char* name = p + strlen("[macro ");
+        char* spc = strchr(name, ' ');
+        char* argend = strchr(name, ']');
+        char* nameend = (spc < argend) ? spc : argend;
+        *nameend = 0;
+        *argend = 0;
+        char* args = nameend + 1;
+        if (args > argend) args = "";
+
+        char* body = argend + 1;
+        char* end = strstr(body, "[/macro]");
+        if (!end) { printf("\n%%ERROR: macro not terminated: %s\n", p); exit(3); }
+        *end = 0; // terminate body
+        fundef(name, args, body);
+
+        end += strlen("[/macro]");
+        memmove(m, end, end-p + 1);
+    }
 }
 
 void funsubst(PutChar out, char* funname, char* args) {
@@ -90,7 +121,11 @@ void funsubst(PutChar out, char* funname, char* args) {
 
     int r = -4711;
     char* s = NULL;
-    if (0) ;
+    FunDef *f = findfun(funname);
+    if (f) {
+        s = f->body;
+        // TODO: substitute parameters!
+    } 
     else if (!strcmp(funname, "+")) r = num() + num();
     else if (!strcmp(funname, "-")) r = num() - num();
     else if (!strcmp(funname, "*")) r = num() * num();
@@ -146,7 +181,7 @@ void funsubst(PutChar out, char* funname, char* args) {
 int run(char* start, PutChar out) {
     char* s = start;
     
-    removefuns();
+    removefuns(s);
 
     int substcount = 0;
     char* exp = NULL;
