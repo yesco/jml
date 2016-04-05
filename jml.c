@@ -49,13 +49,13 @@ void myputchar(int len, char c, char* s) {
     }
 }
 
+// TODO: make a linked list in FLASH
 typedef struct FunDef {
     char* name;
     char* args;
     char* body;
 } FunDef;
 
-// TODO: make a linked list in FLASH
 FunDef functions[SIZE] = {0};
 int functions_count = 0;
 
@@ -69,6 +69,9 @@ void fundef(char* funname, char* args, char* body) {
     f->body = strdup(body);
 }
 
+// TODO: find macros to FunDef above...  [macro FUN ARGS]...[/macro]
+// TODO: find temporary func/closures... [func ARGS]...[/func], only store in RAM and get rid of between runs...
+// and ... [data ID DATA] [get ID] [history ID] gives id: [dir MATCHID] [find DTA] [search DTA]
 void removefuns() {
 }
 
@@ -107,8 +110,16 @@ void funsubst(PutChar out, char* funname, char* args) {
         }
         return;
     }
+    else if (!strcmp(funname, "if")) {
+        int e = num(); char *thn = next(), *els = next();
+        thn = thn ? thn : "";
+        els = els ? els : "";
+        s = e ? thn : els;
+    }
+    else if (!strcmp(funname, "empty")) { char* x = next(); r = !x ? 1 : !strcmp(x, ""); }
+    else if (!strcmp(funname, "equal")) r = strcmp(next(), next()) == 0;
+    else if (!strcmp(funname, "cmp")) r = strcmp(next(), next());
     // we can modify the input strings, as long as they get shorter...
-    else if (!strcmp(funname, "upper")) { s = next(); char* x = s; while (*x = toupper(*x)) x++; }
     else if (!strcmp(funname, "lower")) { s = next(); char* x = s; while (*x = tolower(*x)) x++; }
     else if (!strcmp(funname, "concat")) {
         s = args; char* d = args;
@@ -128,6 +139,7 @@ void funsubst(PutChar out, char* funname, char* args) {
     if (s) {
         out(-1, 0, s);
     } else {
+        outnum(r);
     }
 }
 
@@ -157,12 +169,18 @@ int run(char* start, PutChar out) {
             // innermost function call, replace by body etc...
             if (c == ']') {
                 char* p = exp;
-                if (!funend) funend = s;
+                char* args = NULL;
+
+                if (!funend) {
+                    funend = s;
+                    args = "";
+                } else {
+                    args = funend + 1;
+                }
+
                 *funend = 0;
                 char* funname = p;
-                p = funend + 1;
                 *s = 0;
-                char* args = p;
                 funsubst(out, funname, args);
                 substcount++;
 
