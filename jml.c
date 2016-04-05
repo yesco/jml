@@ -5,12 +5,49 @@
 #include <stdlib.h>
 #include <string.h>
 
-char* start = NULL;
-
 #define SIZE 1024
 
 char* out = NULL;
+char* to = NULL;
 char* end = NULL;
+
+typedef void (*PutChar)(int len, char c, char* s);
+
+// if s != NULL append it, 
+// if len == 0 actually print c
+// if len == 1 append c
+void myputchar(int len, char c, char* s) {
+    len = s ? (len > 0 ? len : strlen(s)) : len;
+    // enough space?
+    if (!out) {
+        int sz = 1024;
+        to = out = malloc(sz);
+        memset(out, 0, sz);
+        end = out + sz;
+    }
+
+    if (to + len >= end) {
+        *to = 0;
+        int sz = end-out + 1024 + len;
+        char* nw = realloc(out, sz);
+        fprintf(stderr, "[REALLOC %d]", sz);
+        if (!nw) {
+            printf("ERRROR: realloc error!");
+            exit(2);
+        }
+        to = to - out + nw;
+        out = nw;
+        end = out + sz;
+    }
+
+    if (s) {
+        while (*s) myputchar(1, *s++, NULL);
+    } else if (len == 1) { 
+        *to++ = c;
+    } else {
+        putchar(c);
+    }
+}
 
 typedef struct FunDef {
     char* name;
@@ -35,8 +72,15 @@ void fundef(char* funname, char* args, char* body) {
 void removefuns() {
 }
 
-void funsubst(char** pto, char* funname, char* args) {
+void funsubst(PutChar out, char* funname, char* args) {
     //printf("<<<%s,%s>>>", funname, args);
+
+    void outnum(int n) {
+        int len = snprintf(NULL, 0, "%d", n);
+        char x[len+1];
+        snprintf(x, len+1, "%d", n);
+        out(len, 0, x);
+    }
 
     char* next() { char* a = args; args = NULL; return strtok(a, " "); }
     int num() { return atoi(next()); }
@@ -49,6 +93,20 @@ void funsubst(char** pto, char* funname, char* args) {
     else if (!strcmp(funname, "*")) r = num() * num();
     else if (!strcmp(funname, "/")) r = num() * num();
     else if (!strcmp(funname, "%")) r = num() * num();
+    else if (!strcmp(funname, ">")) r = num() > num();
+    else if (!strcmp(funname, "<")) r = num() < num();
+    else if (!strcmp(funname, ">=")) r = num() >= num();
+    else if (!strcmp(funname, "<=")) r = num() >= num();
+    else if (!strcmp(funname, "=")) r = num() == num();
+    else if (!strcmp(funname, "!=")) r = num() != num();
+    else if (!strcmp(funname, "iota")) {
+        int a = num(), i = 0;
+        while (i < a) {
+            outnum(i++);
+            out(1, ' ', NULL);
+        }
+        return;
+    }
     // we can modify the input strings, as long as they get shorter...
     else if (!strcmp(funname, "upper")) { s = next(); char* x = s; while (*x = toupper(*x)) x++; }
     else if (!strcmp(funname, "lower")) { s = next(); char* x = s; while (*x = tolower(*x)) x++; }
@@ -60,22 +118,20 @@ void funsubst(char** pto, char* funname, char* args) {
         }
         *d = 0;
     } else {
-        int len = snprintf(*pto, 255 /*TODO*/, "%(FAIL:%s %s)", funname, args);
-        *pto += len;
+        out(-1, 0, "%(FAIL:");
+        out(-1, 0, funname);
+        out(-1, 0, args);
+        out(-1, 0, ")%");
         return;
     }
 
     if (s) {
-        int len = snprintf(*pto, 255 /*TODO*/, "%s", s);
-        *pto += len;
+        out(-1, 0, s);
     } else {
-        int len = snprintf(*pto, 255 /*TODO*/, "%d", r);
-        *pto += len;
     }
 }
 
-int run() {
-    char* to = out;
+int run(char* start, PutChar out) {
     char* s = start;
     
     removefuns();
@@ -92,10 +148,8 @@ int run() {
             if (exp) {
                 exp--;
                 // copy since '['
-                while (exp < s) {
-                    *to++ = *exp;
-                    exp++;
-                }
+                while (exp < s) 
+                    out(1, *exp++, NULL);
             }
             exp = s + 1;
             funend = NULL;
@@ -109,8 +163,7 @@ int run() {
                 p = funend + 1;
                 *s = 0;
                 char* args = p;
-                char* x = to;
-                funsubst(&to, funname, args);
+                funsubst(out, funname, args);
                 substcount++;
 
                 exp = NULL;
@@ -121,9 +174,9 @@ int run() {
                 // expression skip till ']'
             }
         } else if (doprint) {
-            putchar(c);
+            out(0, c, NULL);
         } else { // retain for next loop
-            *to++ = c;
+            out(1, c, NULL);
         }
         // next
         s++;
@@ -134,15 +187,17 @@ int run() {
 }
 
 void main() {
-    start = strdup("foo [[concat up per] fie] fum");
+    char* start = NULL;
+    size_t len = 0;
+    int ln = getline(&start, &len, stdin);
+    //start = strdup("foo [[concat up per] fie] fum");
     printf("%s\n", start);
     do {
-        out = malloc(SIZE);
-        memset(out, 0, SIZE);
-        end = out + SIZE; // TODO: not used...
-        if (!run()) break;
+        if (!run(start, myputchar)) break;
+
         free(start);
         start = out;
+        out = NULL;
     } while (1);
     printf("\n");
     free(start);
