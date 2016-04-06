@@ -7,6 +7,7 @@
 
 #define SIZE 1024
 
+// TODO: move this up
 char* out = NULL;
 char* to = NULL;
 char* end = NULL;
@@ -47,6 +48,7 @@ void myputchar(int len, char c, char* s) {
     } else {
         putchar(c);
     }
+    *to = 0;
 }
 
 // TODO: make a linked list in FLASH
@@ -61,7 +63,7 @@ int functions_count = 0;
 
 // TODO: how to handle closures/RAM and GC?
 void fundef(char* funname, char* args, char* body) {
-    printf("\nFUNDEF: %s[%s]>>>%s<<<\n", funname, args, body);
+    //printf("\nFUNDEF: %s[%s]>>>%s<<<\n", funname, args, body);
     if (functions_count > SIZE) { printf("OUT OF FUNCTIONS!\n"); exit(1); }
     FunDef *f = &functions[functions_count++];
     // take a copy as the data comes from transient current state of program
@@ -102,12 +104,40 @@ void removefuns(char* s) {
         fundef(name, args, body);
 
         end += strlen("[/macro]");
-        memmove(m, end, end-p + 1);
+        memmove(m, end, strlen(end)+1);
     }
 }
 
 void funsubst(PutChar out, char* funname, char* args) {
     //printf("<<<%s,%s>>>", funname, args);
+
+    #define MAX_ARGS 10
+    int argc = 0;
+    char* farga[MAX_ARGS] = {0};
+    int fargalen[MAX_ARGS] = {0};
+    char* arga[MAX_ARGS] = {0};
+
+    void parseArgs(char* fargs, char* args) {
+        // fill in farga[] and fargalen[] from fargs
+        while (*fargs) {
+            while (*fargs == ' ') fargs++;
+            if (!*fargs) break;
+            farga[argc] = fargs;
+            int len = 0;
+            while (*fargs && *fargs != ' ') { fargs++; len++; }
+            fargalen[argc] = len;
+            argc++;
+        }
+        // match extract each farg with actual arg
+        int i = 0;
+        while (*args == ' ') *args++ = 0;
+        while (*args && i < argc) {
+            while (*args == ' ') *args++ = 0;
+            arga[i] = args;
+            while (*args && *args != ' ') args++;
+            i++;
+        }
+    }
 
     void outnum(int n) {
         int len = snprintf(NULL, 0, "%d", n);
@@ -116,15 +146,41 @@ void funsubst(PutChar out, char* funname, char* args) {
         out(len, 0, x);
     }
 
-    char* next() { char* a = args; args = NULL; return strtok(a, " "); }
+    char* next() {
+        char* a = args; args = NULL; // assign once
+        if (argc > 10) { printf("\n%%next(): run out of arga position! too many arguments!\n"); exit(4); }
+        return strtok(a, " ");
+    }
     int num() { return atoi(next()); }
 
     int r = -4711;
     char* s = NULL;
     FunDef *f = findfun(funname);
     if (f) {
-        s = f->body;
-        // TODO: substitute parameters!
+        char* body = f->body;
+        char* fargs = f->args;
+
+        parseArgs(fargs, args);
+        
+        char c;
+        while (c = *body) {
+            if (c == '$' || c == '@' ) {
+                // find named prefix if match formal argument name
+                int i = 0;
+                while (i < argc && strncmp(body, farga[i], fargalen[i])) i++;
+
+                // substitute
+                if (i < argc) {
+                    out(-1, 0, arga[i]);
+                    body += fargalen[i];
+                } else {
+                    printf("\n%%Argument: %s not found!\n", strtok(body, " "));
+                }
+            } else {
+                out(1, *body++, NULL);
+            }
+        }
+        return;
     } 
     else if (!strcmp(funname, "+")) r = num() + num();
     else if (!strcmp(funname, "-")) r = num() - num();
@@ -158,11 +214,29 @@ void funsubst(PutChar out, char* funname, char* args) {
     else if (!strcmp(funname, "lower")) { s = next(); char* x = s; while (*x = tolower(*x)) x++; }
     else if (!strcmp(funname, "concat")) {
         s = args; char* d = args;
+        // essentially it concats strings by removing spaces
         while (*args) {
             while (*args && *args != ' ') *d++ = *args++;
             while (*args && *args == ' ') args++;
         }
         *d = 0;
+    } else if (!strcmp(funname, "data")) {
+        s = args;
+        char* id = next();
+        char* data = s + strlen(id) + 1;
+        char name[strlen(id)+1+5];
+        name[0] = 0;
+        strcat(name, "data-");
+        strcat(name, id);
+        fundef(name, "", data);
+        s = data;
+    } else if (!strcmp(funname, "funcs")) {
+        int i;
+        for(i = 0; i < functions_count; i++) {
+            out(-1, 0, functions[i].name);
+            out(1, ' ', NULL);
+        }
+        return;
     } else {
         out(-1, 0, "%(FAIL:");
         out(-1, 0, funname);

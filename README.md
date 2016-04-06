@@ -55,6 +55,10 @@ values. Parameters are space delimited.
   Repeatable computing. 
   (link)[http://urbit.org/docs/theory/whitepaper]
 
+- http://vpri.org/html/work/ifnct.htm
+
+- http://www.otonomos.com/
+
 ### Readings about x86 style OSes
 
 - how to build and bootstrap your own os (on PC arch) (link)[http://www.brokenthorn.com/Resources/]
