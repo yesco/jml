@@ -81,11 +81,9 @@ FunDef* findfun(char* funname) {
     return NULL;
 }
 
-// TODO: find macros to FunDef above...  [macro FUN ARGS]...[/macro]
 // TODO: find temporary func/closures... [func ARGS]...[/func], only store in RAM and get rid of between runs...
-// and ... [data ID DATA] [get ID] [history ID] gives id: [dir MATCHID] [find DTA] [search DTA]
-// modifies input by removing defs.. in place
 void removefuns(char* s) {
+    // remove [macro FUN ARGS]BODY[/macro] and doing fundef() on them
     char *m = s, *p;
     while (m = p = strstr(m, "[macro ")) {
         char* name = p + strlen("[macro ");
@@ -109,8 +107,6 @@ void removefuns(char* s) {
 }
 
 void funsubst(PutChar out, char* funname, char* args) {
-    //printf("<<<%s,%s>>>", funname, args);
-
     #define MAX_ARGS 10
     int argc = 0;
     char* farga[MAX_ARGS] = {0};
@@ -127,6 +123,7 @@ void funsubst(PutChar out, char* funname, char* args) {
             while (*fargs && *fargs != ' ') { fargs++; len++; }
             fargalen[argc] = len;
             argc++;
+            if (argc > MAX_ARGS) { printf("\n%%parseArgs MAX_ARGS too small!\n"); exit(4); }
         }
         // match extract each farg with actual arg
         int i = 0;
@@ -138,6 +135,7 @@ void funsubst(PutChar out, char* funname, char* args) {
             i++;
         }
     }
+    #undef MAX_ARGS
 
     void outnum(int n) {
         int len = snprintf(NULL, 0, "%d", n);
