@@ -81,6 +81,15 @@ FunDef* findfun(char* funname) {
     return NULL;
 }
 
+void fprintFuns(FILE* f) {
+    int i;
+    for(i = 0; i < functions_count; i++) {
+        FunDef *fun = &functions[i];
+        fprintf(f, "[macro %s%s%s]%s[/macro]\n",
+                fun->name, strlen(fun->args) ? " " : "", fun->args, fun->body);
+    }
+}
+
 // TODO: find temporary func/closures... [func ARGS]...[/func], only store in RAM and get rid of between runs...
 void removefuns(char* s) {
     // remove [macro FUN ARGS]BODY[/macro] and doing fundef() on them
@@ -90,9 +99,9 @@ void removefuns(char* s) {
         char* spc = strchr(name, ' ');
         char* argend = strchr(name, ']');
         char* nameend = (spc < argend) ? spc : argend;
-        *nameend = 0;
+        if (nameend) *nameend = 0;
         *argend = 0;
-        char* args = nameend + 1;
+        char* args = nameend ? nameend + 1 : argend + 1;
         if (args > argend) args = "";
 
         char* body = argend + 1;
@@ -311,21 +320,51 @@ int run(char* start, PutChar out) {
     return substcount;
 }
 
-void main() {
-    char* start = NULL;
-    size_t len = 0;
-    int ln = getline(&start, &len, stdin);
-    //start = strdup("foo [[concat up per] fie] fum");
-    printf("%s\n", start);
+char* oneline(char* s) {
     do {
-        if (!run(start, myputchar)) break;
+        if (!run(s, myputchar)) break;
 
-        free(start);
-        start = out;
+        free(s);
+        s = out;
         out = NULL;
     } while (1);
     printf("\n");
-    free(start);
-    free(out);
+
+    free(s);
+    return out;
+}
+
+char* freadline(FILE* f) {
+    size_t len = 0;
+    char* ln = NULL;
+    int n = getline(&ln, &len, f);
+    if (n < 0 && ln) { free(ln); ln = NULL; }
+    return ln;
+}
+
+void main() {
+    FILE* f = fopen("jml.state", "r");
+    while (f && !feof(f)) {
+        char* line = freadline(f);
+        if (!line) break;
+        char* out = oneline(line);
+        printf("%s\n", out);
+        //free(out); // TODO: crashses!!!
+        out = NULL;
+    }
+    if (f) fclose(f);
+
+    char* line = freadline(stdin);
+    if (line) {
+        char* out = oneline(line);
+        printf("OUT=%s<<<\n", out);
+//        free(out); // TODO: crashes!!!
+        out = NULL;
+    }
+
+    printf("---------log------\n");
+    f = fopen("jml.state", "w");
+    fprintFuns(f);
+    fclose(f);
 } 
 
