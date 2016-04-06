@@ -12,6 +12,8 @@ char* out = NULL;
 char* to = NULL;
 char* end = NULL;
 
+//#define free(x) ({ unsigned _x = (unsigned) x; printf("\n%d:FREE %x\n", __LINE__, _x); /*free(x); */})
+
 typedef void (*PutChar)(int len, char c, char* s);
 
 // if s != NULL append it, 
@@ -316,7 +318,7 @@ int run(char* start, PutChar out) {
         s++;
     }
     // end
-    *to = 0;
+    //*to = 0;
     return substcount;
 }
 
@@ -326,12 +328,13 @@ char* oneline(char* s) {
 
         free(s);
         s = out;
-        out = NULL;
+        end = to = out = NULL;
     } while (1);
-    printf("\n");
+    printf("%s", out); fflush(stdout);
 
     free(s);
-    return out;
+    free(out);
+    end = to = out = NULL;
 }
 
 char* freadline(FILE* f) {
@@ -347,22 +350,17 @@ void main() {
     while (f && !feof(f)) {
         char* line = freadline(f);
         if (!line) break;
-        char* out = oneline(line);
-        printf("%s\n", out);
-        //free(out); // TODO: crashses!!!
-        out = NULL;
+        oneline(line);
     }
+    if (out) { free(out); end = to = out = NULL; }
+
     if (f) fclose(f);
 
     char* line = freadline(stdin);
     if (line) {
-        char* out = oneline(line);
-        printf("OUT=%s<<<\n", out);
-//        free(out); // TODO: crashes!!!
-        out = NULL;
+        oneline(line);
     }
 
-    printf("---------log------\n");
     f = fopen("jml.state", "w");
     fprintFuns(f);
     fclose(f);
