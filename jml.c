@@ -75,10 +75,10 @@ void fundef(char* funname, char* args, char* body) {
 }
 
 FunDef* findfun(char* funname) {
-    FunDef *f = &functions[0];
-    while (f->name) {
-        if (!strcmp(funname, f->name)) return f;
-        f++;
+    int i;
+    for(i = functions_count-1; i >= 0; i--) {
+        FunDef *f = &functions[i];
+        if (f->name && !strcmp(funname, f->name)) return f;
     }
     return NULL;
 }
