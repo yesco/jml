@@ -12,6 +12,9 @@ char* out = NULL;
 char* to = NULL;
 char* end = NULL;
 
+// consider using UUID/GUID random generator for unique ID
+// - https://github.com/marvinroger/ESP8266TrueRandom
+
 //#define free(x) ({ unsigned _x = (unsigned) x; printf("\n%d:FREE %x\n", __LINE__, _x); /*free(x); */})
 
 typedef void (*PutChar)(int len, char c, char* s);
@@ -76,6 +79,7 @@ void fundef(char* funname, char* args, char* body) {
 
 FunDef* findfun(char* funname) {
     int i;
+    // search backwards to find the latest first
     for(i = functions_count-1; i >= 0; i--) {
         FunDef *f = &functions[i];
         if (f->name && !strcmp(funname, f->name)) return f;
