@@ -236,6 +236,7 @@ void funsubst(PutChar out, char* funname, char* args) {
     } else if (!strcmp(funname, "data")) {
         s = args;
         char* id = next();
+        if (!id) return;
         char* data = s + strlen(id) + 1;
         char name[strlen(id)+1+5];
         name[0] = 0;
@@ -349,9 +350,12 @@ char* freadline(FILE* f) {
     return ln;
 }
 
-void main() {
-    FILE* f = fopen("jml.state", "r");
+void main(int argc, char* argv[]) {
+    char* state = argc > 1 ? argv[1] : "jml.state";
+
+    FILE* f = fopen(state, "r");
     while (f && !feof(f)) {
+        // TODO: how to handle macro def/invocations over several lines?
         char* line = freadline(f);
         if (!line) break;
         oneline(line);
@@ -362,10 +366,11 @@ void main() {
 
     char* line = freadline(stdin);
     if (line) {
+        // TODO: how to handle macro def/invocations over several lines?
         oneline(line);
     }
 
-    f = fopen("jml.state", "w");
+    f = fopen(state, "w");
     fprintFuns(f);
     fclose(f);
 } 
