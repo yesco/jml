@@ -4,8 +4,16 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <errno.h>
 
 #define SIZE 1024
+
+#define UNIX 1
+#include "httpd.h"
+#undef UNIX
+
+// TODO: consider adding
+// - https://github.com/cesanta/slre (one file)
 
 // TODO: move this up
 char* out = NULL;
@@ -17,12 +25,18 @@ char* end = NULL;
 
 //#define free(x) ({ unsigned _x = (unsigned) x; printf("\n%d:FREE %x\n", __LINE__, _x); /*free(x); */})
 
-typedef void (*PutChar)(int len, char c, char* s);
+// TODO: two layers of global pointers... Hmmm. how to cleanup?
+// could create local myout that takes the jmlputchar function as parameter...
+typedef void (*Out)(int len, char c, char* s);
+
+typedef (*jmlputchartype)(int c);
+
+static jmlputchartype jmlputchar;
 
 // if s != NULL append it, 
 // if len == 0 actually print c
 // if len == 1 append c
-void myputchar(int len, char c, char* s) {
+void myout(int len, char c, char* s) {
     len = s ? (len > 0 ? len : strlen(s)) : len;
     // enough space?
     if (!out) {
@@ -47,11 +61,11 @@ void myputchar(int len, char c, char* s) {
     }
 
     if (s) {
-        while (*s) myputchar(1, *s++, NULL);
+        while (*s) myout(1, *s++, NULL);
     } else if (len == 1) { 
         *to++ = c;
     } else {
-        putchar(c);
+        jmlputchar(c);
     }
     *to = 0;
 }
@@ -121,7 +135,10 @@ void removefuns(char* s) {
     }
 }
 
-void funsubst(PutChar out, char* funname, char* args) {
+// At the current position in outstream get the body of funname
+// and replace the actual arguments into positions of formals.
+void funsubst(Out out, char* funname, char* args) {
+    //printf("\nfunsubst=%s (%s)\n", funname, args);
     #define MAX_ARGS 10
     int argc = 0;
     char* farga[MAX_ARGS] = {0};
@@ -162,10 +179,16 @@ void funsubst(PutChar out, char* funname, char* args) {
     char* next() {
         char* a = args; args = NULL; // assign once
         if (argc > 10) { printf("\n%%next(): run out of arga position! too many arguments!\n"); exit(4); }
-        return strtok(a, " ");
+        char* r = strtok(a, " ");
+        return r ? r : ""; // returning NULL may crash stuff...
     }
     int num() { return atoi(next()); }
 
+    // either call out(...) and return
+    // or fall through and
+    // if s != NULL then this is output value
+    // otherwise it stringifies the numeric value r
+    // s = arg to make an ID function, next() to get next argument (modifies arg)
     int r = -4711;
     char* s = NULL;
     FunDef *f = findfun(funname);
@@ -224,15 +247,42 @@ void funsubst(PutChar out, char* funname, char* args) {
     else if (!strcmp(funname, "equal")) r = strcmp(next(), next()) == 0;
     else if (!strcmp(funname, "cmp")) r = strcmp(next(), next());
     // we can modify the input strings, as long as they get shorter...
-    else if (!strcmp(funname, "lower")) { s = next(); char* x = s; while (*x = tolower(*x)) x++; }
+    else if (!strcmp(funname, "lower")) { char* x = s = args; while (*x = tolower(*x)) x++; }
+    else if (!strcmp(funname, "upper")) { char* x = s = args; while (*x = toupper(*x)) x++; }
     else if (!strcmp(funname, "concat")) {
         s = args; char* d = args;
         // essentially it concats strings by removing spaces
+        // and copying the rest of string over the space
         while (*args) {
             while (*args && *args != ' ') *d++ = *args++;
             while (*args && *args == ' ') args++;
         }
         *d = 0;
+    } else if (!strcmp(funname, "split")) {
+        char* needle = strtok(args, " ");
+        char* x = args + strlen(needle) + 1;
+        while (*x) {
+            char* f = strstr(x, needle);
+            if (!f) break;
+            *f = 0;
+            out(-1, 0, x);
+            out(1, ' ', NULL);
+            x = f + strlen(needle);
+        }
+        out(-1, 0, x);
+        return;
+    } else if (!strcmp(funname, "decode")) {
+        char* x = s = next();
+        while (*x) {
+            if (*x == '+') *x = ' ';
+            if (*x == '%') {
+                #define HEX2INT(x) ({ int _x = toupper(x); _x >= 'A' ? _x - 'A' + 10 : _x - '0'; })
+                *x = HEX2INT(*(x+1)) * 16 + HEX2INT(*(x+2));
+                #undef HEX2INT
+                memmove(x+1, x+3, strlen(x+3) + 1);
+            }
+            x++;
+        }
     } else if (!strcmp(funname, "data")) {
         s = args;
         char* id = next();
@@ -266,7 +316,7 @@ void funsubst(PutChar out, char* funname, char* args) {
     }
 }
 
-int run(char* start, PutChar out) {
+int run(char* start, Out out) {
     char* s = start;
     
     removefuns(s);
@@ -277,7 +327,7 @@ int run(char* start, PutChar out) {
     char c;
     int doprint = 1;
     while (c = *s) {
-        if (c == '[') {
+        if (c == '[') { // "EVAL"
             // once we find an expression, we no longer can print/remove
             doprint = 0;
             if (exp) {
@@ -290,7 +340,7 @@ int run(char* start, PutChar out) {
             funend = NULL;
         } else if (exp) {
             // innermost function call, replace by body etc...
-            if (c == ']') {
+            if (c == ']') { // "APPLY"
                 char* p = exp;
                 char* args = NULL;
 
@@ -327,9 +377,15 @@ int run(char* start, PutChar out) {
     return substcount;
 }
 
-char* oneline(char* s) {
+// assumes one mallocated string in, it will be freed
+// no return, just output on "stdout"
+void oneline(char* s, jmlputchartype putt) {
+    // temporary change output method
+    void* stored = jmlputchar;
+    jmlputchar = putt;
+
     do {
-        if (!run(s, myputchar)) break;
+        if (!run(s, myout)) break;
 
         free(s);
         s = out;
@@ -340,6 +396,9 @@ char* oneline(char* s) {
     free(s);
     free(out);
     end = to = out = NULL;
+    
+    // restore output method
+    jmlputchar = stored;
 }
 
 char* freadline(FILE* f) {
@@ -350,26 +409,112 @@ char* freadline(FILE* f) {
     return ln;
 }
 
-void main(int argc, char* argv[]) {
+static void jmlheader(char* buff, char* method, char* path) {
+    //printf("HEADER.ignored: %s\n", buff);
+}
+
+static void jmlbody(char* buff, char* method, char* path) {
+    //printf("BODY.ignored: %s\n", buff);
+}
+
+int doexit = 0;
+
+static void jmlresponse(int req, char* method, char* path) {
+    printf("------------------------------ %s %s\n\n", method, path);
+    if (!strcmp("/exit", method)) {
+        doexit = 1;
+        return;
+    }
+
+    // TODO: are we allowed to modify path? yes, for now
+    path++; // skip '/'
+    char* args = strchr(path, '?');
+    if (!args)
+        args = "";
+    else {
+        *args = 0;
+        args++;
+    }
+
+    // TODO: errhhh..
+    if (out) free(out); end = to = out = NULL;
+
+    // build structured string to do eval on
+    // 1. [fun foo=42&bar=fish]  from /fun?foo=42&bar=fish
+    // 2. [fun foo bar]          from /fun?foo+bar
+    // 3. [fun foo bar]          from /?[fun+foo+bar] TODO:!!!
+    myout(1, '[', NULL);
+    {
+        myout(-1, 0, path);
+        //myout(1, ' ', NULL);
+        myout(-1, 0, " ");// two spaces but will only be one???
+        // TODO: unsafe to allow call of any function, maybe only allow call "/func" ?
+        if (strchr(args, '=')) { // url on form /fun?var1=value1&var2=value2
+            // TODO: could do a decode that extracts parameters and match to fargs!
+            // for now, just let function decode and extract itself!
+            myout(-1, 0, args);
+        } else { // url on form /fun?arg1+arg2
+            myout(-1, 0, "[decode ");
+            myout(-1, 0, args);
+            myout(1, ']', NULL);
+        }
+    }
+    myout(1, ']', NULL);
+    
+    printf("OUT=%s<\n", out);
+
+    int putt(int c) {
+        char ch = c;
+        return write(req, &ch, 1);
+    }
+
+    // make a copy
+    char* line = strdup(out);
+    if (out) free(out); end = to = out = NULL;
+
+    oneline(line, putt);
+
+    // line is freed by oneline, output putt
+}
+
+int main(int argc, char* argv[]) {
+    jmlputchar = putchar;
+
     char* state = argc > 1 ? argv[1] : "jml.state";
+
+    int putstdout(int c) {
+        return fputc(c, stdout);
+    }
 
     FILE* f = fopen(state, "r");
     while (f && !feof(f)) {
         // TODO: how to handle macro def/invocations over several lines?
         char* line = freadline(f);
         if (!line) break;
-        oneline(line);
+
+        oneline(line, putchar);
     }
     if (out) { free(out); end = to = out = NULL; }
-
     if (f) fclose(f);
 
+    if (1) {
+        // web server
+        int web = httpd_init(1111);
+        if (web < 0 ) { printf("ERROR.errno=%d\n", errno); return -1; }
+        doexit = 0;
+        while (!doexit) {
+            httpd_next(web, jmlheader, jmlbody, jmlresponse);
+        }
+    }
+
+    // TODO: make it part of non-blocking loop!
     char* line = freadline(stdin);
     if (line) {
         // TODO: how to handle macro def/invocations over several lines?
-        oneline(line);
+        oneline(line, putchar);
     }
 
+    // TODO: make it append and only write "new" stuff
     f = fopen(state, "w");
     fprintFuns(f);
     fclose(f);

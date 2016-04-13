@@ -1,5 +1,7 @@
 # jml - a "minimal" operating system
 
+TODO: find a better name?
+
 More useless than (Urbit)[http://urbit.org/]!
 
 To be used for ESP8266 as a minimal functional internet OS with
@@ -8,7 +10,7 @@ system)[https://hn.algolia.com/story/7166173/an-immutable-operating-system?query
 
 ## Goal
 
-Simple online virtual physical computer.
+Simple online programmable virtual physical computer with built in "memory".
 
 ## simple string based evaluation
 
@@ -26,6 +28,11 @@ the result is achieved by replacing the expression with the body where
 the formal parameter names have been substituted by the actual
 values. Parameters are space delimited.
 
+## efficiency
+
+Bah... computers are fast! Seriously, we're generating HTML and serving
+it on the net, so what's fast anyway?
+
 ## features
 
 - active messaging
@@ -35,7 +42,7 @@ values. Parameters are space delimited.
 - simple evaluation mechanism
 - http communication (TODO)
 
-### Readings 
+### Alternative Universe Inspired Readings 
 
 - https://en.wikipedia.org/wiki/Amorphous_computing
 
@@ -68,3 +75,17 @@ values. Parameters are space delimited.
 - https://github.com/ReturnInfinity/BareMetal-OS
 - http://wiki.osdev.org/Main_Page
 - http://home.in.tum.de/~hauffa/slides.pdf
+
+## Urbit summary (and features I'd like have?)
+
+(urbit intro by third party)[http://alexkrupp.typepad.com/sensemaking/2013/12/a-brief-introduction-to-urbit.html]
+
+- decentralized computing platform
+- clean-slate OS
+- personal server
+- persistent virtual computer
+- you own it, trust and control
+- "Urbit is perhaps how you'd do computing in a post-singularity world, where computational speed and bandwidth are infinite, and what's valuable is security, trust, creativity, and collaboration. It's essentially a combination of a programming language, OS, virtual machine, social network, and digital identity platform."
+- UDP
+- reputation based social network (?)
+- event logging
