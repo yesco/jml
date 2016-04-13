@@ -160,7 +160,7 @@ void funsubst(Out out, char* funname, char* args) {
         // match extract each farg with actual arg
         int i = 0;
         while (*args == ' ') *args++ = 0;
-        while (*args && i < argc) {
+        while (*args && argc && i < argc + (farga[argc-1][0] == '$')) {
             while (*args == ' ') *args++ = 0;
             arga[i] = args;
             while (*args && *args != ' ') args++;
@@ -259,8 +259,11 @@ void funsubst(Out out, char* funname, char* args) {
         }
         *d = 0;
     } else if (!strcmp(funname, "split")) {
-        char* needle = strtok(args, " ");
-        char* x = args + strlen(needle) + 1;
+        char* x = args;
+        char* needle = next();
+        x += strlen(needle) + 1;
+        //printf("needle=%s<\n", needle);
+        //printf("x=%s<\n", x);
         while (*x) {
             char* f = strstr(x, needle);
             if (!f) break;
@@ -304,6 +307,7 @@ void funsubst(Out out, char* funname, char* args) {
     } else {
         out(-1, 0, "%(FAIL:");
         out(-1, 0, funname);
+        out(1, ' ', NULL);
         out(-1, 0, args);
         out(-1, 0, ")%");
         return;
@@ -439,15 +443,18 @@ static void jmlresponse(int req, char* method, char* path) {
     // TODO: errhhh..
     if (out) free(out); end = to = out = NULL;
 
+    myout(-1, 0, "HTTP/1.1 200 OK\r\n");
+    myout(-1, 0, "Content-Type: text/html\r\n");
+    myout(-1, 0, "\r\n");
+
     // build structured string to do eval on
     // 1. [fun foo=42&bar=fish]  from /fun?foo=42&bar=fish
     // 2. [fun foo bar]          from /fun?foo+bar
-    // 3. [fun foo bar]          from /?[fun+foo+bar] TODO:!!!
+    // TODO:??? -- 3. [fun foo bar]          from /?[fun+foo+bar]
     myout(1, '[', NULL);
     {
         myout(-1, 0, path);
-        //myout(1, ' ', NULL);
-        myout(-1, 0, " ");// two spaces but will only be one???
+        myout(1, ' ', NULL);
         // TODO: unsafe to allow call of any function, maybe only allow call "/func" ?
         if (strchr(args, '=')) { // url on form /fun?var1=value1&var2=value2
             // TODO: could do a decode that extracts parameters and match to fargs!
