@@ -180,8 +180,7 @@ void funsubst(Out out, char* funname, char* args) {
     }
 
     char* next() {
-        char* a = args; args = NULL; // assign once
-        if (argc > 10) { printf("\n%%next(): run out of arga position! too many arguments!\n"); exit(4); }
+        char* a = args; args = NULL; // strtok will get only once
         char* r = strtok(a, " ");
         return r ? r : ""; // returning NULL may crash stuff...
     }
