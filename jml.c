@@ -234,9 +234,17 @@ void funsubst(Out out, char* funname, char* args) {
     else if (!strcmp(funname, "+")) { r = 0; char* x; while (*(x = next())) r += atoi(x); }
     else if (!strcmp(funname, "*")) { r = 1; char* x; while (*(x = next())) r *= atoi(x); }
     else if (!strcmp(funname, "iota")) {
-        int a = num(), i = 0;
-        while (i < a) {
-            outnum(i++);
+        int f = 0, t = num(), s = 1;
+        char* x = next();
+        if (*x) {
+            f = t;
+            t = atoi(x) + 1;
+            x = next();
+        }
+        if (*x) s = atoi(x);
+        while (f < t) {
+            outnum(f);
+            f += s;
             out(1, ' ', NULL);
         }
         return;
