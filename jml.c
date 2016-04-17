@@ -141,7 +141,7 @@ void removefuns(char* s) {
 // At the current position in outstream get the body of funname
 // and replace the actual arguments into positions of formals.
 void funsubst(Out out, char* funname, char* args) {
-    //printf("\nfunsubst=%s (%s)\n", funname, args);
+    //fprintf(stderr, "\n(((%s,%s)))\n", funname, args);
     #define MAX_ARGS 10
     int argc = 0;
     char* farga[MAX_ARGS] = {0};
@@ -229,7 +229,7 @@ void funsubst(Out out, char* funname, char* args) {
     else if (!strcmp(funname, ">")) r = num() > num();
     else if (!strcmp(funname, "<")) r = num() < num();
     else if (!strcmp(funname, ">=")) r = num() >= num();
-    else if (!strcmp(funname, "<=")) r = num() >= num();
+    else if (!strcmp(funname, "<=")) r = num() <= num();
     else if (!strcmp(funname, "=")) r = num() == num();
     else if (!strcmp(funname, "!=")) r = num() != num();
     else if (!strcmp(funname, "iota")) {
@@ -252,7 +252,37 @@ void funsubst(Out out, char* funname, char* args) {
     // we can modify the input strings, as long as they get shorter...
     else if (!strcmp(funname, "lower")) { char* x = s = args; while (*x = tolower(*x)) x++; }
     else if (!strcmp(funname, "upper")) { char* x = s = args; while (*x = toupper(*x)) x++; }
-    else if (!strcmp(funname, "field")) { // extract simple xml, one value from one field
+    else if (!strcmp(funname, "length")) { r = 0; while (*next()) r++; }
+    else if (!strcmp(funname, "nth")) { int n = num(); s = ""; while (n-- > 0) s = next(); }
+    else if (!strcmp(funname, "map")) {
+        char* fun = next();
+        char* x = NULL;
+        while (*(x = next())) {
+            out(1, '[', NULL);
+            out(-1, 0, fun);
+            out(1, ' ', NULL);
+            out(-1, 0, x);
+            out(1, ']', NULL);
+            out(1, ' ', NULL);
+        }
+        return;
+    } else if (!strcmp(funname, "after")) {
+        char* x = args;
+        char* find = next();
+        x += strlen(find) + 1;
+        char* f = strstr(x, find);
+        if (f) out(-1, 0, f + strlen(find));
+        return;
+    } else if (!strcmp(funname, "before")) {
+        char* x = args;
+        char* find = next();
+        x += strlen(find) + 1;
+        char* f = strstr(x, find);
+        if (!f) return;
+        *f = 0;
+        out(-1, 0, x);
+        return;
+    } else if (!strcmp(funname, "field")) { // extract simple xml, one value from one field
         // LOL: 'parsing' "xml" by char*!
         char* x = args;
         char* name = next();
@@ -301,12 +331,11 @@ void funsubst(Out out, char* funname, char* args) {
         char* x = args;
         char* needle = next();
         x += strlen(needle) + 1;
-        //printf("needle=%s<\n", needle);
-        //printf("x=%s<\n", x);
         while (*x) {
             char* f = strstr(x, needle);
             if (!f) break;
             *f = 0;
+            // TODO: since output is smaller (replace needle with ' '!)
             out(-1, 0, x);
             out(1, ' ', NULL);
             x = f + strlen(needle);
