@@ -252,7 +252,43 @@ void funsubst(Out out, char* funname, char* args) {
     // we can modify the input strings, as long as they get shorter...
     else if (!strcmp(funname, "lower")) { char* x = s = args; while (*x = tolower(*x)) x++; }
     else if (!strcmp(funname, "upper")) { char* x = s = args; while (*x = toupper(*x)) x++; }
-    else if (!strcmp(funname, "concat")) {
+    else if (!strcmp(funname, "field")) { // extract simple xml, one value from one field
+        // LOL: 'parsing' "xml" by char*!
+        char* x = args;
+        char* name = next();
+        char needle[strlen(name) + 2];
+        *needle = 0;
+        strcat(needle, "<");
+        strcat(needle, name);
+        // can be terminated by ' ' or '>' hmmm.
+        x += strlen(name) + 1;
+        while (*x) {
+            char* f = strstr(x, needle);
+            if (!f) return;
+            f += strlen(needle);
+            if (*f == '>' || *f == ' ') {
+                char* start = strchr(f, '>');
+                if (start) {
+                    start++;
+                    char endneedle[strlen(name) + 4];
+                    *endneedle = 0;
+                    strcat(endneedle, "</");
+                    strcat(endneedle, name);
+                    strcat(endneedle, ">");
+                    char* end = strstr(start, endneedle);
+                    if (end) {
+                        *end = 0;
+                        out(1, '{', NULL);
+                        out(-1, 0, start);
+                        out(1, '}', NULL);
+                        return;
+                    }
+                }
+            }
+            x = f;
+        }
+        return;
+    } else if (!strcmp(funname, "concat")) {
         s = args; char* d = args;
         // essentially it concats strings by removing spaces
         // and copying the rest of string over the space
@@ -511,7 +547,7 @@ int main(int argc, char* argv[]) {
     if (out) { free(out); end = to = out = NULL; }
     if (f) fclose(f);
 
-    if (1) {
+    if (0) {
         // web server
         int web = httpd_init(1111);
         if (web < 0 ) { printf("ERROR.errno=%d\n", errno); return -1; }
