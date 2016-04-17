@@ -220,9 +220,9 @@ void funsubst(Out out, char* funname, char* args) {
         }
         return;
     } 
-    else if (!strcmp(funname, "+")) r = num() + num();
+    else if (!strcmp(funname, "inc")) r = num() + 1;
+    else if (!strcmp(funname, "dec")) r = num() - 1;
     else if (!strcmp(funname, "-")) r = num() - num();
-    else if (!strcmp(funname, "*")) r = num() * num();
     else if (!strcmp(funname, "/")) r = num() * num();
     else if (!strcmp(funname, "%")) r = num() * num();
     else if (!strcmp(funname, ">")) r = num() > num();
@@ -231,6 +231,8 @@ void funsubst(Out out, char* funname, char* args) {
     else if (!strcmp(funname, "<=")) r = num() <= num();
     else if (!strcmp(funname, "=")) r = num() == num();
     else if (!strcmp(funname, "!=")) r = num() != num();
+    else if (!strcmp(funname, "+")) { r = 0; char* x; while (*(x = next())) r += atoi(x); }
+    else if (!strcmp(funname, "*")) { r = 1; char* x; while (*(x = next())) r *= atoi(x); }
     else if (!strcmp(funname, "iota")) {
         int a = num(), i = 0;
         while (i < a) {
