@@ -5,12 +5,15 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
-
-#define SIZE 1024
+#include <time.h>
 
 #define UNIX 1
 #include "httpd.h"
 #undef UNIX
+
+// max number of functions
+// TODO: make linked list
+#define SIZE 1024
 
 // TODO: consider adding
 // - https://github.com/cesanta/slre (one file)
@@ -383,7 +386,8 @@ int run(char* start, Out out) {
 
 // assumes one mallocated string in, it will be freed
 // no return, just output on "stdout"
-void oneline(char* s, jmlputchartype putt) {
+int oneline(char* s, jmlputchartype putt) {
+    clock_t start = clock();
     // temporary change output method
     void* stored = jmlputchar;
     jmlputchar = putt;
@@ -403,6 +407,9 @@ void oneline(char* s, jmlputchartype putt) {
     
     // restore output method
     jmlputchar = stored;
+    int t = (clock() - start) * (1000000 / CLOCKS_PER_SEC); // noop!
+    fprintf(stderr, "...(%d us)...", t);
+    return t;
 }
 
 char* freadline(FILE* f) {
