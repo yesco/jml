@@ -6,6 +6,8 @@
 #include <string.h>
 #include <errno.h>
 #include <time.h>
+#include <ctype.h>
+#include <unistd.h>
 
 #define UNIX 1
 #include "httpd.h"
@@ -32,7 +34,7 @@ char* end = NULL;
 // could create local myout that takes the jmlputchar function as parameter...
 typedef void (*Out)(int len, char c, char* s);
 
-typedef (*jmlputchartype)(int c);
+typedef int (*jmlputchartype)(int c);
 
 static jmlputchartype jmlputchar;
 
@@ -224,7 +226,7 @@ void funsubst(Out out, char* funname, char* args) {
     else if (!strcmp(funname, "dec")) r = num() - 1;
     else if (!strcmp(funname, "-")) r = num() - num();
     else if (!strcmp(funname, "/")) r = num() * num();
-    else if (!strcmp(funname, "%")) r = num() * num();
+    else if (!strcmp(funname, "%")) r = num() % num();
     else if (!strcmp(funname, ">")) r = num() > num();
     else if (!strcmp(funname, "<")) r = num() < num();
     else if (!strcmp(funname, ">=")) r = num() >= num();
@@ -511,16 +513,18 @@ static void jmlresponse(int req, char* method, char* path) {
         return;
     }
 
-    // TODO: are we allowed to modify path? yes, for now
-    path++; // skip '/'
-    char* args = strchr(path, '?');
-    if (!args)
-        args = "";
-    else {
+    // args will point to data after '?' or ' '
+    char* args = strchr(path, '?') || strchr(path, ' ');
+    if (!args) {
+	args = "";
+    } else {
         *args = 0;
         args++;
     }
 
+    // skip '/' if '/foo' not found
+    if (path == '/' && !findfun(path)) path++;
+    
     // TODO: errhhh..
     if (out) free(out); end = to = out = NULL;
 
@@ -529,9 +533,11 @@ static void jmlresponse(int req, char* method, char* path) {
     myout(-1, 0, "\r\n");
 
     // build structured string to do eval on
-    // 1. [fun foo=42&bar=fish]  from /fun?foo=42&bar=fish
-    // 2. [fun foo bar]          from /fun?foo+bar
-    // TODO:??? -- 3. [fun foo bar]          from /?[fun+foo+bar]
+    // 1. /fun?foo=42&bar=fish    => [/fun foo=42&bar=fish]
+    // 2. /fun?foo+bar            => [/fun foo bar]
+    // 2. /fun%20foo%20bar        => [/fun foo bar]
+    // TODO: 4. /?[fun+foo+bar]   => [/fun foo bar]
+    // if '/fun' doesn't exists it'll try 'fun' -- TODO: safety problem? ;-)
     myout(1, '[', NULL);
     {
         myout(-1, 0, path);
@@ -585,7 +591,7 @@ int main(int argc, char* argv[]) {
     if (out) { free(out); end = to = out = NULL; }
     if (f) fclose(f);
 
-    if (0) {
+    if (1) {
         // web server
         int web = httpd_init(1111);
         if (web < 0 ) { printf("ERROR.errno=%d\n", errno); return -1; }
@@ -607,4 +613,3 @@ int main(int argc, char* argv[]) {
     fprintFuns(f);
     fclose(f);
 } 
-
