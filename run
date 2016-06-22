@@ -1,1 +1,2 @@
-gcc jml.c httpd.c && ./a.out $*
+# notice, we make the compiler generate 4b longs...
+gcc -m32 jml.c httpd.c && ./a.out $*

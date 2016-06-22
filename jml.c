@@ -140,6 +140,46 @@ void removefuns(char* s) {
     }
 }
 
+// We choose simple symetric encryption as we cannot secure the keys on
+// embedded devices anyway.
+
+// https://en.wikipedia.org/wiki/XXTEA
+#define MX ((z>>5^y<<2) + (y>>3^z<<4) ^ (sum^y) + (k[p&3^e]^z))
+
+// encrypt: btea(data, #longs (>1) keyhash (4 long))
+// decrypt: btea(data, #longs (<1) keyhash (4 long))
+//#include <stdint.h>
+long btea(long* v, long n, long* k) {
+    unsigned long z=v[n-1], y=v[0], sum=0, e, DELTA=0x9e3779b9;
+    long p, q ;
+    if (n > 1) {          /* Coding Part */
+        q = 6 + 52/n;
+        while (q-- > 0) {
+            sum += DELTA;
+            e = (sum >> 2) & 3;
+            for (p=0; p<n-1; p++) y = v[p+1], z = v[p] += MX;
+            y = v[0];
+            z = v[n-1] += MX;
+        }
+        return 0 ;
+    } else if (n < 1) {  /* Decoding Part */
+        n = -n;
+        q = 6 + 52/n;
+        sum = q*DELTA ;
+        while (sum != 0) {
+            e = (sum >> 2) & 3;
+            for (p=n-1; p>0; p--) z = v[p-1], y = v[p] -= MX;
+            z = v[n-1];
+            y = v[0] -= MX;
+            sum -= DELTA;
+        }
+        return 0;
+    }
+    return 1;
+}
+
+#define HEX2INT(x) ({ int _x = toupper(x); _x >= 'A' ? _x - 'A' + 10 : _x - '0'; })
+
 // At the current position in outstream get the body of funname
 // and replace the actual arguments into positions of formals.
 void funsubst(Out out, char* funname, char* args) {
@@ -359,13 +399,70 @@ void funsubst(Out out, char* funname, char* args) {
             if (*x == '+') *x = ' ';
             if (*x == '/') *x = ' ';
             if (*x == '%') {
-                #define HEX2INT(x) ({ int _x = toupper(x); _x >= 'A' ? _x - 'A' + 10 : _x - '0'; })
                 *x = HEX2INT(*(x+1)) * 16 + HEX2INT(*(x+2));
-                #undef HEX2INT
                 memmove(x+1, x+3, strlen(x+3) + 1);
             }
             x++;
         }
+    } else if (!strcmp(funname, "encrypt")) {
+        char hex[] = "0123456789ABCDEF";
+        char* key = "1234123412341234";
+        long k[4];
+        memset(k, 0, 16);
+        int kl = strlen(key);
+        memcpy(k, key, kl > 16 ? 16 : kl);
+
+        int l = strlen(args);
+        int n = (l+3)/4;
+        // we need to pad to at least 8 bytes, for n == 1 no encryption!
+        if (n < 2) n = 2;
+        long data[n];
+        memset(data, 0, n*4);
+        memcpy(data, args, l+1);
+        btea(data, n, k);
+
+        char* d = data;
+        int i;
+        out(1, '{', NULL);
+        for(i = 0; i < n*4; i++) {
+            unsigned char c = *d++;
+            out(1, hex[c / 16], NULL);
+            out(1, hex[c % 16], NULL);
+        }
+        out(1, '}', NULL);
+        return;
+    } else if (!strcmp(funname, "decrypt")) {
+        char* key = "1234123412341234";
+        long k[4];
+        memset(k, 0, 16);
+        int kl = strlen(key);
+        memcpy(k, key, kl > 16 ? 16 : kl);
+
+        // decode hex inplace
+        char* d = args;
+        char* p = args+1; // skip '{'
+        while (*p && *p != '}') {
+            char a = *p++;
+            char b = *p++;
+            *d++ = HEX2INT(a) * 16 + HEX2INT(b);
+        }
+        *d++ = 0;
+        
+        // TODO: refactor, same as above?
+        int n = (d - args - 1)/4;
+        long data[n];
+        memset(data, 0, n*4);
+        memcpy(data, args, n*4);
+        btea(data, -n, k);
+
+        // copy it out
+        d = (char*)data;
+        int i;
+        for(i = 0; i < n*4; i++) {
+            if (!*d) break;
+            out(1, *d++, NULL);
+        }
+        return;
     } else if (!strcmp(funname, "data")) {
         s = args;
         char* id = next();
@@ -577,7 +674,9 @@ static void jmlresponse(int req, char* method, char* path) {
 int main(int argc, char* argv[]) {
     jmlputchar = putchar;
 
-    char* state = argc > 1 ? argv[1] : "jml.state";
+    // parse argument
+    int interactive = (argc > 1 && !strcmp(argv[1], "-i"));
+    char* state = argc > (interactive+1) ? argv[(interactive+1)] : "jml.state";
 
     int putstdout(int c) {
         return fputc(c, stdout);
@@ -594,7 +693,14 @@ int main(int argc, char* argv[]) {
     if (out) { free(out); end = to = out = NULL; }
     if (f) fclose(f);
 
-    if (1) {
+    if (interactive) {
+        // TODO: make it part of non-blocking loop!
+        char* line = freadline(stdin);
+        if (line) {
+            // TODO: how to handle macro def/invocations over several lines?
+            oneline(line, putchar);
+        }
+    } else {
         // web server
         int web = httpd_init(1111);
         if (web < 0 ) { printf("ERROR.errno=%d\n", errno); return -1; }
@@ -602,13 +708,6 @@ int main(int argc, char* argv[]) {
         while (!doexit) {
             httpd_next(web, jmlheader, jmlbody, jmlresponse);
         }
-    }
-
-    // TODO: make it part of non-blocking loop!
-    char* line = freadline(stdin);
-    if (line) {
-        // TODO: how to handle macro def/invocations over several lines?
-        oneline(line, putchar);
     }
 
     // TODO: make it append and only write "new" stuff
