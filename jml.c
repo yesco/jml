@@ -357,6 +357,7 @@ void funsubst(Out out, char* funname, char* args) {
         char* x = s = next();
         while (*x) {
             if (*x == '+') *x = ' ';
+            if (*x == '/') *x = ' ';
             if (*x == '%') {
                 #define HEX2INT(x) ({ int _x = toupper(x); _x >= 'A' ? _x - 'A' + 10 : _x - '0'; })
                 *x = HEX2INT(*(x+1)) * 16 + HEX2INT(*(x+2));
@@ -384,11 +385,11 @@ void funsubst(Out out, char* funname, char* args) {
         }
         return;
     } else {
-        out(-1, 0, "%(FAIL:");
+        out(-1, 0, "<font color=red>%(FAIL:");
         out(-1, 0, funname);
         out(1, ' ', NULL);
         out(-1, 0, args);
-        out(-1, 0, ")%");
+        out(-1, 0, ")%</font>");
         return;
     }
 
@@ -507,14 +508,16 @@ static void jmlbody(char* buff, char* method, char* path) {
 int doexit = 0;
 
 static void jmlresponse(int req, char* method, char* path) {
-    printf("------------------------------ %s %s\n\n", method, path);
+    printf("------------------------------ '%s' '%s'\n\n", method, path);
     if (!strcmp("/exit", method)) {
         doexit = 1;
         return;
     }
 
     // args will point to data after '?' or ' '
-    char* args = strchr(path, '?') || strchr(path, ' ');
+    char* args = strchr(path, '?');
+    if (!args) args = strchr(path, ' ');
+    if (!args) args = strchr(path+1, '/');
     if (!args) {
 	args = "";
     } else {
@@ -523,7 +526,7 @@ static void jmlresponse(int req, char* method, char* path) {
     }
 
     // skip '/' if '/foo' not found
-    if (path == '/' && !findfun(path)) path++;
+    if (*path == '/' && !findfun(path)) path++;
     
     // TODO: errhhh..
     if (out) free(out); end = to = out = NULL;
@@ -539,20 +542,20 @@ static void jmlresponse(int req, char* method, char* path) {
     // TODO: 4. /?[fun+foo+bar]   => [/fun foo bar]
     // if '/fun' doesn't exists it'll try 'fun' -- TODO: safety problem? ;-)
     myout(1, '[', NULL);
-    {
-        myout(-1, 0, path);
-        myout(1, ' ', NULL);
-        // TODO: unsafe to allow call of any function, maybe only allow call "/func" ?
-        if (strchr(args, '=')) { // url on form /fun?var1=value1&var2=value2
-            // TODO: could do a decode that extracts parameters and match to fargs!
-            // for now, just let function decode and extract itself!
-            myout(-1, 0, args);
-        } else { // url on form /fun?arg1+arg2
-            myout(-1, 0, "[decode ");
-            myout(-1, 0, args);
-            myout(1, ']', NULL);
-        }
+    myout(-1, 0, path);
+    myout(1, ' ', NULL);
+
+    // TODO: unsafe to allow call of any function, maybe only allow call "/func" ?
+    if (strchr(args, '=')) { // url on form /fun?var1=value1&var2=value2
+        // TODO: could do a decode that extracts parameters and match to fargs!
+        // for now, just let function decode and extract itself!
+        myout(-1, 0, args);
+    } else { // url on form /fun?arg1+arg2
+        myout(-1, 0, "[decode ");
+        myout(-1, 0, args);
+        myout(1, ']', NULL);
     }
+
     myout(1, ']', NULL);
     
     printf("OUT=%s<\n", out);
