@@ -404,7 +404,7 @@ void funsubst(Out out, char* funname, char* args) {
             }
             x++;
         }
-    } else if (!strcmp(funname, "encrypt")) {
+    } else if (!strncmp(funname, "encrypt", 7)) {
         char hex[] = "0123456789ABCDEF";
         char* key = "1234123412341234";
         long k[4];
@@ -419,6 +419,20 @@ void funsubst(Out out, char* funname, char* args) {
         while (*last == ' ') *last-- = 0;
         
         int l = strlen(args);
+
+        // encrypt-eval function, has an interesting action:
+        // it'll replace all {} to [] before encrypting.
+        // This means, when it's decrypted with decrypt-eval
+        // it would automatically execute any code...
+        if (!strcmp(funname, "encrypt-eval")) {
+            char* e = args;
+            while (*e) {
+                if (*e == '{') *e = '[';
+                if (*e == '}') *e = ']';
+                e++;
+            }
+        }
+            
         int n = (l+3)/4;
         // we need to pad to at least 8 bytes, for n == 1 no encryption!
         if (n < 2) n = 2;
@@ -428,8 +442,8 @@ void funsubst(Out out, char* funname, char* args) {
         btea(data, n, k);
 
         char* d = (char*)data;
-        int i;
         out(1, '{', NULL);
+        int i;
         for(i = 0; i < n*4; i++) {
             unsigned char c = *d++;
             out(1, hex[c / 16], NULL);
@@ -437,7 +451,7 @@ void funsubst(Out out, char* funname, char* args) {
         }
         out(1, '}', NULL);
         return;
-    } else if (!strcmp(funname, "decrypt")) {
+    } else if (!strncmp(funname, "decrypt", 7)) {
         char* key = "1234123412341234";
         long k[4];
         memset(k, 0, 16);
@@ -467,11 +481,16 @@ void funsubst(Out out, char* funname, char* args) {
         memcpy(data, args, n*4);
         btea(data, -n, k);
 
+        int eval = !strcmp(funname, "decrypt-eval");
         // copy it out
         d = (char*)data;
         int i;
         for(i = 0; i < n*4; i++) {
             if (!*d) break;
+            if (!eval) {
+                if (*d == '[') *d = '{';
+                if (*d == ']') *d = '}';
+            }
             out(1, *d++, NULL);
         }
         return;
