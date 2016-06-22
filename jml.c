@@ -402,6 +402,10 @@ void funsubst(Out out, char* funname, char* args) {
                 *x = HEX2INT(*(x+1)) * 16 + HEX2INT(*(x+2));
                 memmove(x+1, x+3, strlen(x+3) + 1);
             }
+            // TODO: unsafe so we decode to [] allowing any code...
+            // http://localhost:1111/+/%5b*%209%209%5d
+            if (*x == '[') *x = '{';
+            if (*x == ']') *x = '}';
             x++;
         }
     } else if (!strncmp(funname, "encrypt", 7)) {
@@ -672,6 +676,16 @@ static void jmlresponse(int req, char* method, char* path) {
     myout(1, '[', NULL);
     myout(-1, 0, path);
     myout(1, ' ', NULL);
+
+    // TODO: unsafe so we decode to [] allowing any code...
+    // http://localhost:1111/+/%5b*%209%209%5d
+    // TODO: could substitute to "[unsafe-XXX ...]" which would give error...
+    char* x = args;
+    while (*x) {
+        if (*x == '[') *x = '{';
+        if (*x == ']') *x = '}';
+        x++;
+    }
 
     // TODO: unsafe to allow call of any function, maybe only allow call "/func" ?
     if (strchr(args, '=')) { // url on form /fun?var1=value1&var2=value2

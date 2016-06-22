@@ -77,19 +77,36 @@ Strings
 WEB, decode URL
 - [decode foo+bar%2b%25] => foo bar+%
 
-Security/Encryption/TEA
-- [encrypt FOOBAR] => {39CE0CD92EEBACC8}
-- [decrypt {39CE0CD92EEBACC8}] => FOOBAR
-- [encrypt-eval (+ 3 4)] => {D9403DC570A74AF1}
-- [decrypt {D9403DC570A74AF1}] => (+ 3 4)
-- [decrypt-eval {D9403DC570A74AF1}] => (+ 3 4) => 7
-
 Storage/persistent/database
 - [data firstname Peter] .. [data-firstname] => Peter
 - [funcs] => user define func names
 
 Failure
 - [xyz sadfasdf] => (%FAIL: xyz sadfasdf)
+
+### Security/Encryption/(TEA)[https://en.wikipedia.org/wiki/Tiny_Encryption_Algorithm]
+- [encrypt FOOBAR] => {39CE0CD92EEBACC8}
+- [decrypt {39CE0CD92EEBACC8}] => FOOBAR
+- [encrypt-eval (+ 3 4)] => {D9403DC570A74AF1}
+- [decrypt {D9403DC570A74AF1}] => (+ 3 4)
+- [decrypt-eval {D9403DC570A74AF1}] => (+ 3 4) => 7
+
+Note on "security", it's just XXTEA which can only provide nominal
+security in access. They keys aren't protected and if one has access
+to the physical device would be able to extract the key. However,
+if each device have it's own key and the person communicating with it.
+It's protected against middle-man attack. Each unikernel/device should have
+it's own key. It may be possible to use the key to only allow the owner of
+that key to modify and run any code. Others would only be allowed to interact
+using the public defined macro functions, like [macro /foo]...
+
+Encrypted data becomes HEX coded, thus will at use at least the double
+amount of bytes.
+
+#### Termination
+
+Currently, if you loop forever by recursion there is no limit. One could add
+a max-substitution count, or time that would terminate the current running request.
 
 ### Alternative Universe Inspired Readings 
 
