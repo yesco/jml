@@ -10,7 +10,7 @@ system)[https://hn.algolia.com/story/7166173/an-immutable-operating-system?query
 
 ## Goal
 
-Simple online programmable virtual physical computer with built in "memory".
+Simple online programmable virtual physical computer with built in persistent "memory".
 
 ## simple string based evaluation
 
@@ -42,8 +42,60 @@ it on the net, so what's fast anyway?
 - simple evaluation mechanism
 - http communication (TODO)
 
+## built-in functions
+
+Math
+- * % inc dec > < >= <= = !=
+- [+ 1 2 3 4] => 10
+- [* 1 2 3 4] => 24
+- [iota 1 3] => 1 2 3
+- [iota 0 10 2] 
+
+Test
+- [if 0 THIS not] => THIS
+- [if X not THAT] => THAT
+- [empty] =>1
+- [empty ...] => 0
+- [empty    ] => 1
+- [equal A B] => 0
+- [cmp A B] => (A cmp B)
+- lower upper
+- [length 1 2 3] = 3
+- [length 11 22 33 44] = 4
+
+Lists
+- [nth 2 11 22 33] => 22
+- [map F A B C ...] => [F A] [F B] [F C] [map F ...]
+
+Strings
+- [after X abcXzy] => zy
+- [before X abcXzy] = abc
+- [field name ksajf; sadflk dsaflk <name c='foo'>FISH</name> sdfl sadf asdfdsa] => {FISH}
+- [concat A B C D ...] => ABCD...
+- [split a aAaBBaAa] => A BB A
+
+WEB, decode URL
+- [decode foo+bar%2b%25] => foo bar+%
+
+Security/Encryption/TEA
+- [encrypt FOOBAR] => {39CE0CD92EEBACC8}
+- [decrypt {39CE0CD92EEBACC8}] => FOOBAR
+- [encrypt-eval (+ 3 4)] => {D9403DC570A74AF1}
+- [decrypt {D9403DC570A74AF1}] => (+ 3 4)
+- [decrypt-eval {D9403DC570A74AF1}] => (+ 3 4) => 7
+
+Storage/persistent/database
+- [data firstname Peter] .. [data-firstname] => Peter
+- [funcs] => user define func names
+
+Failure
+- [xyz sadfasdf] => (%FAIL: xyz sadfasdf)
+
 ### Alternative Universe Inspired Readings 
 
+- (unikernel listings)[http://unikernel.org/projects/]
+  TODO: add myself?
+  
 - https://en.wikipedia.org/wiki/Amorphous_computing
 
 - Phatom_OS - a managed code on object level rather than process level
