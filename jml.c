@@ -57,7 +57,7 @@ void myout(int len, char c, char* s) {
         char* nw = realloc(out, sz);
         fprintf(stderr, "[REALLOC %d]", sz);
         if (!nw) {
-            printf("ERRROR: realloc error!");
+            fprintf(stderr, "ERRROR: realloc error!");
             exit(2);
         }
         to = to - out + nw;
@@ -88,7 +88,7 @@ int functions_count = 0;
 // TODO: how to handle closures/RAM and GC?
 void fundef(char* funname, char* args, char* body) {
     //printf("\nFUNDEF: %s[%s]>>>%s<<<\n", funname, args, body);
-    if (functions_count > SIZE) { printf("OUT OF FUNCTIONS!\n"); exit(1); }
+    if (functions_count > SIZE) { fprintf(stderr, "OUT OF FUNCTIONS!\n"); exit(1); }
     FunDef *f = &functions[functions_count++];
     // take a copy as the data comes from transient current state of program
     f->name = strdup(funname);
@@ -131,7 +131,7 @@ void removefuns(char* s) {
 
         char* body = argend + 1;
         char* end = strstr(body, "[/macro]");
-        if (!end) { printf("\n%%ERROR: macro not terminated: %s\n", p); exit(3); }
+        if (!end) { fprintf(stderr, "\n%%ERROR: macro not terminated: %s\n", p); exit(3); }
         *end = 0; // terminate body
         fundef(name, args, body);
 
@@ -200,7 +200,7 @@ void funsubst(Out out, char* funname, char* args) {
             while (*fargs && *fargs != ' ') { fargs++; len++; }
             fargalen[argc] = len;
             argc++;
-            if (argc > MAX_ARGS) { printf("\n%%parseArgs MAX_ARGS too small!\n"); exit(4); }
+            if (argc > MAX_ARGS) { fprintf(stderr, "\n%%parseArgs MAX_ARGS too small!\n"); exit(4); }
         }
         // match extract each farg with actual arg
         int i = 0;
@@ -421,7 +421,7 @@ void funsubst(Out out, char* funname, char* args) {
         memcpy(data, args, l+1);
         btea(data, n, k);
 
-        char* d = data;
+        char* d = (char*)data;
         int i;
         out(1, '{', NULL);
         for(i = 0; i < n*4; i++) {
@@ -675,8 +675,17 @@ int main(int argc, char* argv[]) {
     jmlputchar = putchar;
 
     // parse argument
-    int interactive = (argc > 1 && !strcmp(argv[1], "-i"));
-    char* state = argc > (interactive+1) ? argv[(interactive+1)] : "jml.state";
+    int argi = 1;
+    int web = 0;
+    if (argc > argi && !strcmp(argv[argi++], "-w")) {
+        web = argc > argi ? atoi(argv[argi]) : 0;
+        if (web > 0)
+            argi++;
+        else
+            web = 1111;
+    }
+    char* state = argc > argi ? argv[argi++] : "jml.state";
+    fprintf(stderr, "web=%d state=%s\n", web, state);
 
     int putstdout(int c) {
         return fputc(c, stdout);
@@ -693,20 +702,21 @@ int main(int argc, char* argv[]) {
     if (out) { free(out); end = to = out = NULL; }
     if (f) fclose(f);
 
-    if (interactive) {
+    if (web) {
+        // web server
+        int www = httpd_init(web);
+        if (www < 0 ) { printf("ERROR.errno=%d\n", errno); return -1; }
+        printf("\n%%Webserver started on port=%d\n", web);
+        doexit = 0;
+        while (!doexit) {
+            httpd_next(www, jmlheader, jmlbody, jmlresponse);
+        }
+    } else {
         // TODO: make it part of non-blocking loop!
         char* line = freadline(stdin);
         if (line) {
             // TODO: how to handle macro def/invocations over several lines?
             oneline(line, putchar);
-        }
-    } else {
-        // web server
-        int web = httpd_init(1111);
-        if (web < 0 ) { printf("ERROR.errno=%d\n", errno); return -1; }
-        doexit = 0;
-        while (!doexit) {
-            httpd_next(web, jmlheader, jmlbody, jmlresponse);
         }
     }
 
