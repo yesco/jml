@@ -412,6 +412,12 @@ void funsubst(Out out, char* funname, char* args) {
         int kl = strlen(key);
         memcpy(k, key, kl > 16 ? 16 : kl);
 
+        // trim leading space
+        while (*args && *args == ' ') args++;
+        // trime last space
+        char* last = args + strlen(args) - 1;
+        while (*last == ' ') *last-- = 0;
+        
         int l = strlen(args);
         int n = (l+3)/4;
         // we need to pad to at least 8 bytes, for n == 1 no encryption!
@@ -438,9 +444,15 @@ void funsubst(Out out, char* funname, char* args) {
         int kl = strlen(key);
         memcpy(k, key, kl > 16 ? 16 : kl);
 
+        // trim leading space (and '{')
+        while (*args && (*args == ' ' || *args == '{')) args++;
+        // trime last space
+        char* last = args + strlen(args) - 1;
+        while (*last == ' ') *last-- = 0;
+        
         // decode hex inplace
         char* d = args;
-        char* p = args+1; // skip '{'
+        char* p = args;
         while (*p && *p != '}') {
             char a = *p++;
             char b = *p++;
