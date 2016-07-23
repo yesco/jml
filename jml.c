@@ -515,7 +515,17 @@ void funsubst(Out out, char* funname, char* args) {
     } else if (!strcmp(funname, "data")) {
         s = args;
         char* id = next();
-        if (!id || !strlen(id)) return;
+        if (!id || !strlen(id)) {
+            int i;
+            for(i = 0; i < functions_count; i++) {
+                char* name = functions[i].name;
+                if (name == strstr(name, "data-")) {
+                    out(-1, 0, name);
+                    out(1, ' ', NULL);
+                }
+            }
+            return;
+        }
         char* data = s + strlen(id) + 1;
         char name[strlen(id)+1+5];
         name[0] = 0;
