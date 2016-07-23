@@ -267,10 +267,10 @@ void funsubst(Out out, char* funname, char* args) {
                     out(-1, 0, arga[i]);
                     body += fargalen[i];
                 } else {
-                    // TODO: x@y.z will trigger... this should be done at define time...
-                    fprintf("\n%%Argument: %s not found!\n", strtok(body, " "));
+                    fprintf(stderr, "\n%%Argument: %s not found!\n", strtok(body, " "));
                 }
             } else {
+                if (c == '\\') out(1, *body++, NULL);
                 out(1, *body++, NULL);
             }
         }
