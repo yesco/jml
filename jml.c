@@ -530,6 +530,15 @@ void funsubst(Out out, char* funname, char* args) {
             out(1, ' ', NULL);
         }
         return;
+    } else if (!strcmp(funname, "fargs")) {
+        FunDef* f = findfun(next());
+        if (f) out(0, 0, f->args);
+        return;
+    } else if (!strcmp(funname, "fbody")) {
+        FunDef* f = findfun(next());
+        if (f) out(0, 0, f->args);
+        out(0, 0, f->body);
+        return;
     } else {
         out(-1, 0, "<font color=red>%(FAIL:");
         out(-1, 0, funname);
@@ -718,6 +727,11 @@ static void jmlresponse(int req, char* method, char* path) {
     printf("OUT=%s<\n", out);
 
     int putt(int c) {
+        static int escape = 0;
+        if (escape && c == 'n') { write(req, "<br>", 4); c = '\n'; }
+        if (escape && c == 't') c = '\t';
+        if (escape = (c == '\\')) return 0;
+
         char ch = c;
         return write(req, &ch, 1);
     }
