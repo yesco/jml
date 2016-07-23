@@ -85,15 +85,37 @@ typedef struct FunDef {
 FunDef functions[SIZE] = {0};
 int functions_count = 0;
 
+FILE* jml_state = NULL;
+
+void fprintFun(FILE* f, int i) {
+    FunDef *fun = &functions[i];
+    // TODO: test for faiure
+    int r = fprintf(f, "[macro %s%s%s]%s[/macro]\n",
+                    fun->name, strlen(fun->args) ? " " : "", fun->args, fun->body);
+    if (r < 0) fprintf(stderr, "\n%%Writing function %s at position %d failed\n", fun->name, i);
+    fflush(f);
+
+    fprintf(stderr, "\t[appended %s to file]", fun->name);
+}
+
+void fprintAllFuns(FILE* f) {
+    int i;
+    for(i = 0; i < functions_count; i++)
+        fprintFun(f, i);
+}
+
 // TODO: how to handle closures/RAM and GC?
 void fundef(char* funname, char* args, char* body) {
     //printf("\nFUNDEF: %s[%s]>>>%s<<<\n", funname, args, body);
     if (functions_count > SIZE) { fprintf(stderr, "OUT OF FUNCTIONS!\n"); exit(1); }
+    int i = functions_count;
     FunDef *f = &functions[functions_count++];
     // take a copy as the data comes from transient current state of program
     f->name = strdup(funname);
     f->args = strdup(args);
     f->body = strdup(body);
+
+    if (jml_state) fprintFun(jml_state, i);
 }
 
 FunDef* findfun(char* funname) {
@@ -104,15 +126,6 @@ FunDef* findfun(char* funname) {
         if (f->name && !strcmp(funname, f->name)) return f;
     }
     return NULL;
-}
-
-void fprintFuns(FILE* f) {
-    int i;
-    for(i = 0; i < functions_count; i++) {
-        FunDef *fun = &functions[i];
-        fprintf(f, "[macro %s%s%s]%s[/macro]\n",
-                fun->name, strlen(fun->args) ? " " : "", fun->args, fun->body);
-    }
 }
 
 // TODO: find temporary func/closures... [func ARGS]...[/func], only store in RAM and get rid of between runs...
@@ -501,7 +514,7 @@ void funsubst(Out out, char* funname, char* args) {
     } else if (!strcmp(funname, "data")) {
         s = args;
         char* id = next();
-        if (!id) return;
+        if (!id || !strlen(id)) return;
         char* data = s + strlen(id) + 1;
         char name[strlen(id)+1+5];
         name[0] = 0;
@@ -617,7 +630,7 @@ int oneline(char* s, jmlputchartype putt) {
     // restore output method
     jmlputchar = stored;
     int t = (clock() - start) * (1000000 / CLOCKS_PER_SEC); // noop!
-    fprintf(stderr, "...(%d us)...", t);
+    //fprintf(stderr, "...(%d us)...", t);
     return t;
 }
 
@@ -730,13 +743,14 @@ int main(int argc, char* argv[]) {
             web = 1111;
     }
     char* state = argc > argi ? argv[argi++] : "jml.state";
-    fprintf(stderr, "web=%d state=%s\n", web, state);
+    //fprintf(stderr, "web=%d state=%s\n", web, state);
 
     int putstdout(int c) {
         return fputc(c, stdout);
     }
 
-    FILE* f = fopen(state, "r");
+    // Read previous state
+    FILE* f  = fopen(state, "a+"); // position for read beginning, write always only appends
     while (f && !feof(f)) {
         // TODO: how to handle macro def/invocations over several lines?
         char* line = freadline(f);
@@ -745,28 +759,31 @@ int main(int argc, char* argv[]) {
         oneline(line, putchar);
     }
     if (out) { free(out); end = to = out = NULL; }
-    if (f) fclose(f);
 
+    // Keep file open to append new defs
+    jml_state = f;
+    
+    // Start the web server
     if (web) {
-        // web server
         int www = httpd_init(web);
         if (www < 0 ) { printf("ERROR.errno=%d\n", errno); return -1; }
         printf("\n%%Webserver started on port=%d\n", web);
         doexit = 0;
+        // simple single threaded semantics/monitor/object/actor
         while (!doexit) {
             httpd_next(www, jmlheader, jmlbody, jmlresponse);
         }
     } else {
-        // TODO: make it part of non-blocking loop!
-        char* line = freadline(stdin);
-        if (line) {
-            // TODO: how to handle macro def/invocations over several lines?
-            oneline(line, putchar);
-        }
+        char* line = NULL;
+        do {
+            // TODO: make it part of non-blocking loop!
+            line = freadline(stdin);
+            if (line) {
+                // TODO: how to handle macro def/invocations over several lines?
+                oneline(line, putchar);
+            }
+        } while (line);
     }
 
-    // TODO: make it append and only write "new" stuff
-    f = fopen(state, "w");
-    fprintFuns(f);
-    fclose(f);
+    if (jml_state) fclose(jml_state);
 } 
