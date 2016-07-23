@@ -267,7 +267,8 @@ void funsubst(Out out, char* funname, char* args) {
                     out(-1, 0, arga[i]);
                     body += fargalen[i];
                 } else {
-                    printf("\n%%Argument: %s not found!\n", strtok(body, " "));
+                    // TODO: x@y.z will trigger... this should be done at define time...
+                    fprintf("\n%%Argument: %s not found!\n", strtok(body, " "));
                 }
             } else {
                 out(1, *body++, NULL);
@@ -608,6 +609,7 @@ int run(char* start, Out out) {
 
 // assumes one mallocated string in, it will be freed
 // no return, just output on "stdout"
+// TODO: how to handle macro def/invocations over several lines?
 int oneline(char* s, jmlputchartype putt) {
     clock_t start = clock();
     // temporary change output method
@@ -732,6 +734,14 @@ static void jmlresponse(int req, char* method, char* path) {
 int main(int argc, char* argv[]) {
     jmlputchar = putchar;
 
+    int putstdout(int c) {
+        static int escape = 0;
+        if (escape && c == 'n') c = '\n';
+        if (escape && c == 't') c = '\t';
+        if (escape = (c == '\\')) return 0;
+        return fputc(c, stdout);
+    }
+
     // parse argument
     int argi = 1;
     int web = 0;
@@ -745,18 +755,13 @@ int main(int argc, char* argv[]) {
     char* state = argc > argi ? argv[argi++] : "jml.state";
     //fprintf(stderr, "web=%d state=%s\n", web, state);
 
-    int putstdout(int c) {
-        return fputc(c, stdout);
-    }
-
     // Read previous state
     FILE* f  = fopen(state, "a+"); // position for read beginning, write always only appends
     while (f && !feof(f)) {
-        // TODO: how to handle macro def/invocations over several lines?
         char* line = freadline(f);
         if (!line) break;
 
-        oneline(line, putchar);
+        oneline(line, putstdout);
     }
     if (out) { free(out); end = to = out = NULL; }
 
@@ -780,7 +785,7 @@ int main(int argc, char* argv[]) {
             line = freadline(stdin);
             if (line) {
                 // TODO: how to handle macro def/invocations over several lines?
-                oneline(line, putchar);
+                oneline(line, putstdout);
             }
         } while (line);
     }
