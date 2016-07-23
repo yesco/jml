@@ -1,3 +1,4 @@
+[macro ignore][/macro]
 [macro help]JML Unikernel, (C) 2016 Jonas S Karlsson, https://github.com/yesco/jml<hr>\nMath   : inc dec - / % > < >= <= = != + * (iota FROM TO STEP)\nString : empty equal cmp lower upper after before concat (split USING TEXT)\nX/HTML : (field NAME TEXT) decode encrypt encrypt-eval decrypt decrypt-eval\nList   : length nth map\nSystem : (data ID TEXT) (data-ID) funcs fargs fbody\nFuncs  : [funcs]\n[/macro]
 [macro header $title]<html><head><title>$title</title></head><h1>$title</h1>[/macro]
 [macro footer]</body></html>[/macro]
@@ -12,5 +13,3 @@
 [macro link $URL @TEXT]<a href="$URL">@TEXT</a>[/macro]
 [macro f-li-nk $fun @TEXT][f-li [link /$fun $fun @TEXT]][/macro]
 [macro /list][header List Data][map f-li-nk [data]][footer][/macro]
-[macro data-foo]bar[/macro]
-[macro data-fie]FUM[/macro]

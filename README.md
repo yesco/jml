@@ -2,11 +2,10 @@
 
 TODO: find a better name?
 
-More useless than (Urbit)[http://urbit.org/]!
+More useless than [Urbit](http://urbit.org/)!
 
 To be used for ESP8266 as a minimal functional internet OS with
-"memory", see (immutable operating
-system)[https://hn.algolia.com/story/7166173/an-immutable-operating-system?query=&sort=byPopularity&prefix&page=0&dateRange=all&type=all].
+"memory", see [immutable operating system](https://hn.algolia.com/story/7166173/an-immutable-operating-system?query=&sort=byPopularity&prefix&page=0&dateRange=all&type=all).
 
 ## Goal
 
@@ -19,11 +18,70 @@ Simple online programmable virtual physical computer with built in persistent "m
     foo [upper bar] fie => foo BAR fie
     [[concat up per] fie] = FIE
 
+Note, this language has a "different" if
+
+    [if 0 1 2] => 2
+    [if 1 1 2] => 1
+    [if [< 3 4] smaller bigger] => smaller
+
+however, not, it's not lazy eval or special form:
+
+    [macro foo]11 22[/macro]
+    [macro bar]2 1[/macro]
+
+    [if 0 [foo] [bar]] => 20
+
+    ???
+
+    [if 0 [foo] [bar]] =>
+    [if 0 11 22 [bar]] =>
+    [if 0 11 22 2 1]] =>
+    22 !!! second argument returned
+
+How to do IFFFF THEN?
+
+    [[if 0 foo bar]] => 2 1
+    [[if 1 foo bar]] => 11 22
+
+So... you can do selection of names to expand. Switch style:
+
+    [macro en-0]zero[/macro]
+    [macro en-1]one[/macro]
+    [macro en-2]two[/macro]
+    [macro en-3]three[/macro]
+    [macro en-4]four[/macro]
+    [macro en-5]five[/macro]
+    [macro en-6]six[/macro]
+    [macro en-7]seven[/macro]
+    [macro en-8]eight[/macro]
+    [macro en-9]nine[/macro]
+    [macro en-10]ten[/macro]
+    [macro en-][/macro]
+    
+    [macro en $digit][en-$digit] [/macro]
+
+    [macro english @digits][map en @digits][/macro]
+
+    [macro english-rec $digit @digits][en-$digit] [[if [empty @digits] ignore english-rec] @digits][/macro]
+
+## help
+
+from command line:
+
+    [help]
+
+from web browser
+
+    unix> ./jml -w
+
+    http:localhost:1111/help
+
+
 ## super eager evaluation
 
 The interpreter is very simple: it just eagerly evaluates any inner
 [fun par] expression where fun and par themselves have no function
-calls. I.e., the innermost [ ] expressions are evaluated successively,
+calls. I.e., the innermost [ ] expressions are replaced successively,
 the result is achieved by replacing the expression with the body where
 the formal parameter names have been substituted by the actual
 values. Parameters are space delimited.
