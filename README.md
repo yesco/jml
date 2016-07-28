@@ -2,15 +2,49 @@
 
 TODO: find a better name?
 
-More useless than [Urbit](http://urbit.org/)!
-
-To be used for ESP8266 as a minimal functional internet OS with
-"memory", see [immutable operating system](https://hn.algolia.com/story/7166173/an-immutable-operating-system?query=&sort=byPopularity&prefix&page=0&dateRange=all&type=all).
-
 ## Goal
 
 Simple online programmable virtual physical computer with built in persistent "memory".
 
+## Why
+
+The idea of a minimal OS is coming up again, maybe recently (now is
+2016) than the last 30 years. We have docker, and various
+virtualization environments. It's funny to simulate an actual once
+existing hardware computer - mostly just a PC. However, there are
+other approaches, more minimal which are single language based. It is
+sometimes called a library OS. For example RTOS for ESP8266
+[esp-open-rtos](https://github.com/SuperHouse/esp-open-rtos) can be
+seen as such. It provides a small implementation of most of the
+libraries and system calls you'd expect on a POSIX/linux style
+computer. It is limited to a single process, so no fork. It does
+provide it's own threading/tasks and semaphore/messaging
+system. However, it doesn't provide infrastructure to think "above a
+single computer".
+
+## What is it?
+
+This project is an attempt to provide a small relatively simple C
+program implementing a *portable small language* onto such an
+invironment. Of course, for more complicated tasks a multitude of
+such distributed instances would be able to cooperate in order to solve
+a bigger problem.
+
+## Status
+
+Status: More "useless" than [Urbit](http://urbit.org/)!
+
+## Outline of actions/TODO/DONE
+
+- DONE: small simple small language interpreter in C
+- what's the minimal set of functions needed?
+- connectivity, receive requests/send requests (messaging)
+- logical + physical addressing something like [Kademlia](https://en.wikipedia.org/wiki/Kademlia)
+- p2p filesystem w some redundancy - [PAST](https://en.wikipedia.org/wiki/Pastry_(DHT))
+- p2p pubsub - [SCRIBE](https://en.wikipedia.org/wiki/Pastry_(DHT))
+- callback verification [Magic cookie](https://en.wikipedia.org/wiki/Magic_cookie)
+- https://en.wikipedia.org/wiki/Merkle_tree
+- cheap hashes https://en.wikipedia.org/wiki/Tiger_(cryptography)
 ## simple string based evaluation
 
     foo => foo
@@ -137,7 +171,10 @@ WEB, decode URL
 
 Storage/persistent/database
 - [data firstname Peter] .. [data-firstname] => Peter
+- [data] =? firstname ...
 - [funcs] => user define func names
+- [fargs macroname] -> $a $b @foo
+- [fbody macroname] -> foo $a fie $b fum: @foo
 
 Failure
 - [xyz sadfasdf] => (%FAIL: xyz sadfasdf)
@@ -152,8 +189,8 @@ Failure
 Note on "security", it's just XXTEA which can only provide nominal
 security in access. They keys aren't protected and if one has access
 to the physical device would be able to extract the key. However,
-if each device have it's own key and the person communicating with it.
-It's protected against middle-man attack. Each unikernel/device should have
+each instance should have it's own key and the person communicating with it need it too.
+This means; It's protected against middle-man attack. Each unikernel/device should have
 it's own key. It may be possible to use the key to only allow the owner of
 that key to modify and run any code. Others would only be allowed to interact
 using the public defined macro functions, like [macro /foo]...
@@ -170,6 +207,11 @@ a max-substitution count, or time that would terminate the current running reque
 
 - (unikernel listings)[http://unikernel.org/projects/]
   TODO: add myself?
+  
+- [immutable operating system](https://hn.algolia.com/story/7166173/an-immutable-operating-system?query=&sort=byPopularity&prefix&page=0&dateRange=all&type=all)
+
+- HackerNews: [Alan Kay has agreed to do an AMA today](https://news.ycombinator.com/item?id=11939851)
+  This is an amazing discussion. 
   
 - https://en.wikipedia.org/wiki/Amorphous_computing
 
@@ -195,17 +237,18 @@ a max-substitution count, or time that would terminate the current running reque
 
 ### Readings about x86 style OSes
 
-- how to build and bootstrap your own os (on PC arch) (link)[http://www.brokenthorn.com/Resources/]
+- how to build and bootstrap your own os (on PC arch) [link](http://www.brokenthorn.com/Resources/)
 - http://www.menuetos.net/index.htm
 - http://www.jamesmolloy.co.uk/tutorial_html/index.html
 - http://www.osdever.net/FreeVGA/home.htm
 - https://github.com/ReturnInfinity/BareMetal-OS
 - http://wiki.osdev.org/Main_Page
 - http://home.in.tum.de/~hauffa/slides.pdf
+- crochet [squeak/3d collaboration space](http://worrydream.com/refs/Smith%20-%20Croquet%20-%20A%20Collaboration%20System%20Architecture.pdf)
 
 ## Urbit summary (and features I'd like have?)
 
-(urbit intro by third party)[http://alexkrupp.typepad.com/sensemaking/2013/12/a-brief-introduction-to-urbit.html]
+[urbit intro by third party](http://alexkrupp.typepad.com/sensemaking/2013/12/a-brief-introduction-to-urbit.html)
 
 - decentralized computing platform
 - clean-slate OS
