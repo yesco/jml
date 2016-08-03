@@ -364,6 +364,7 @@ void funsubst(Out out, char* funname, char* args) {
         }
         return;
     } else if (!strcmp(funname, "after")) {
+        // TODO search for '\$' doesn't work... and '$' gives macro usage error...
         char* x = args;
         char* find = next();
         x += strlen(find) + 1;
@@ -574,7 +575,12 @@ void funsubst(Out out, char* funname, char* args) {
         return;
     } else if (!strcmp(funname, "fargs")) {
         FunDef* f = findfun(next());
-        if (f) out(-1, 0, f->args);
+        char* p = f->args;
+        while (*p) {
+            // dequote [ and ]?
+            if (*p == '$' || *p == '@') out(1, '\\', NULL);
+            out(1, *p++, NULL);
+        }
         return;
     } else if (!strcmp(funname, "fbody")) {
         FunDef* f = findfun(next());
