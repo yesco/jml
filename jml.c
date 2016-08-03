@@ -8,6 +8,7 @@
 #include <time.h>
 #include <ctype.h>
 #include <unistd.h>
+#include <time.h>
 
 #define UNIX 1
 #include "httpd.h"
@@ -84,14 +85,26 @@ typedef struct FunDef {
 
 FunDef functions[SIZE] = {0};
 int functions_count = 0;
-
+int last_logpos = -1;
 FILE* jml_state = NULL;
 
 void fprintFun(FILE* f, int i) {
+    time_t now;
+    time(&now);
+    char iso[sizeof "2011-10-08T07:07:09Z"];
+    strftime(iso, sizeof iso, "%FT%TZ", gmtime(&now));
+
     FunDef *fun = &functions[i];
+    
+    // TODO: fill in values?
+    char* user = "";
+    char* comment = "";
+    
+    last_logpos++;
     // TODO: test for faiure
-    int r = fprintf(f, "[macro %s%s%s]%s[/macro]\n",
-                    fun->name, strlen(fun->args) ? " " : "", fun->args, fun->body);
+    int r = fprintf(f, "[macro %s%s%s]%s[/macro %d %s %s %s]\n",
+                    fun->name, strlen(fun->args) ? " " : "", fun->args, fun->body,
+                    last_logpos, iso, user, comment);
     if (r < 0) fprintf(stderr, "\n%%Writing function %s at position %d failed\n", fun->name, i);
     fflush(f);
 
@@ -130,7 +143,7 @@ FunDef* findfun(char* funname) {
 
 // TODO: find temporary func/closures... [func ARGS]...[/func], only store in RAM and get rid of between runs...
 void removefuns(char* s) {
-    // remove [macro FUN ARGS]BODY[/macro] and doing fundef() on them
+    // remove [macro FUN ARGS]BODY[/macro...] and doing fundef() on them
     char *m = s, *p;
     while (m = p = strstr(m, "[macro ")) {
         char* name = p + strlen("[macro ");
@@ -143,13 +156,32 @@ void removefuns(char* s) {
         if (args > argend) args = "";
 
         char* body = argend + 1;
-        char* end = strstr(body, "[/macro]");
-        if (!end) { fprintf(stderr, "\n%%ERROR: macro not terminated: %s\n", p); exit(3); }
+        char* end = strstr(body, "[/macro");
+        if (!end) { fprintf(stderr, "\n%%ERROR: macro not terminated: %s%s]%s\n", p,args,body); exit(3); }
         *end = 0; // terminate body
         fundef(name, args, body);
 
-        end += strlen("[/macro]");
-        memmove(m, end, strlen(end)+1);
+        // process end of [/macro ISO LOGPOS USER COMMENT]
+        end += strlen("[/macro");
+        char* endend = strstr(end, "]");
+        if (!endend) { fprintf(stderr, "\n%%ERROR: [/macro not terminated with ]:%s", p); exit(4); }
+        char* lp = strtok(end, " ]\n");
+        if (lp) {
+            int logpos = atoi(lp);
+            if (logpos > last_logpos)
+                last_logpos = logpos;
+            else
+                fprintf(stderr, "[/macro.error: logpos=%d < last_logpos=%d]", logpos, last_logpos);
+        }
+        char* tm = strtok(NULL, " ]\n");
+
+        char* user = strtok(NULL, " ]\n");
+        char* comment = user ? user + strlen(user) + 1 : NULL;
+        *end = 0;
+        fprintf(stderr, "\n[LOG >%s< >%s< >%s< >%s<]\n", lp, tm, user, comment);
+                    
+        memmove(m, end, endend-end+1);
+        // leave the /macro function to execute to store some facts if there
     }
 }
 
@@ -542,13 +574,21 @@ void funsubst(Out out, char* funname, char* args) {
         return;
     } else if (!strcmp(funname, "fargs")) {
         FunDef* f = findfun(next());
-        if (f) out(0, 0, f->args);
+        if (f) out(-1, 0, f->args);
         return;
     } else if (!strcmp(funname, "fbody")) {
         FunDef* f = findfun(next());
-        if (f) out(0, 0, f->args);
-        out(0, 0, f->body);
+        if (f) out(-1, 0, f->args);
+        out(-1, 0, f->body);
         return;
+    } else if (!strcmp(funname, "time")) {
+        time_t now;
+        time(&now);
+        char iso[sizeof "2011-10-08T07:07:09Z"];
+        strftime(iso, sizeof iso, "%FT%TZ", gmtime(&now));
+        out(-1, 0, iso);
+        return;
+        // TODO: add parsing to int with strptime or gettime
     } else {
         out(-1, 0, "<font color=red>%(FAIL:");
         out(-1, 0, funname);
