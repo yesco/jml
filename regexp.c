@@ -11,7 +11,8 @@ char* regexp_hlp(char* s, char* re, char* mod, char* start, char* dore) {
   if (!*s) return NULL;
   if (*re == '^') return regexp_hlp(s, re+1, mod, start, NULL); // disable backtrack
   if (*re == '.') return regexp_hlp(s+1, re+1, mod, start, dore);
-  if (*re == '*') return regexp_hlp(s+1, re-1, mod, start, dore);
+  //if (*re == '*') { printf("\n!!!!ERROR *\n"); return regexp_hlp(s+1, re-1, mod, start, dore); }
+  if (*re == '*') return regexp_hlp(s, re+1, mod, start, dore);
   if (*s == *re) {
     char* x = regexp_hlp(s+1, re+1, mod, start, dore);
     if (x) return x;
@@ -78,9 +79,12 @@ void main() {
     + test("a", "aa*", NULL, "a")
     + test("", "aa*", NULL, NULL)
 
-    + test("abba", "a*bba*", NULL, "bba") // TODO: should it do the biggests/greediest?
-    + test("abba", "^a*bba", NULL, "abba") // TODO: should it do the biggests/greediest?
-    + test("abba", "^a*bba*", NULL, "abba") // TODO: should it do the biggests/greediest?
+    + test("abba", "a*bba*", NULL, "abba")
+    + test("bba", "a*bba*", NULL, "bba")
+    + test("bb", "a*bba*", NULL, "bb")
+    + test("abba", "^abba", NULL, "abba")
+    + test("abba", "^a*bba", NULL, "abba")
+    + test("abba", "^a*bba*", NULL, "abba")
     ;
   printf("FAILS %d\n", fails);
 }
