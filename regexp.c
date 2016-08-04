@@ -43,11 +43,8 @@ char* regexp_hlp(char* s, char* re, char* mod, char* start, char* dore) {
   if (!*s && *(re+1) == '*') return regexp_hlp(s, re+2, mod, start, dore);
   if (!*s) return NULL;
   if (*re == '^') return regexp_hlp(s, re+1, mod, start, NULL); // disable backtrack
-  if (*re == '.') return regexp_hlp(s+1, re+1, mod, start, dore);
-  if (*s == *re) {
+  if (*s == *re || *re == '.') {
     char* x = regexp_hlp(s+1, re+1, mod, start, dore);
-    if (x) return x;
-    if (*(re+1) == '*') x = regexp_hlp(s, re+2, mod, start, dore);
     if (x) return x;
   }
   if (*(re+1) == '*') return regexp_hlp(s, re+2, mod, start, dore);
