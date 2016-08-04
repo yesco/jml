@@ -19,5 +19,5 @@
 [macro link $URL @TEXT]<a href="$URL">@TEXT</a>[/macro]
 [macro f-li-nk $fun @TEXT][f-li [link /$fun $fun @TEXT]][/macro]
 [macro /list][header List Data][map f-li-nk [data]][footer][/macro]
-[macro data-ID=foo&TEXT=bar&put=put][/macro 0 2016-08-03T19:08:05Z  ]
-[macro data-foo]bar[/macro 1 2016-08-03T19:08:18Z  ]
+[macro param $ID @DATA][decode [before & [after &$ID= &@DATA&]]][/macro]
+[macro data-fish]CRAP[/macro 0 2016-08-04T08:48:09Z  ]

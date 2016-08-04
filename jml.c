@@ -143,6 +143,8 @@ FunDef* findfun(char* funname) {
 
 // TODO: find temporary func/closures... [func ARGS]...[/func], only store in RAM and get rid of between runs...
 void removefuns(char* s) {
+    if (!s) return;
+    fprintf(stderr, "\nREMOVEFUNS:%s<<\n", s);
     // remove [macro FUN ARGS]BODY[/macro...] and doing fundef() on them
     char *m = s, *p;
     while (m = p = strstr(m, "[macro ")) {
@@ -441,6 +443,7 @@ void funsubst(Out out, char* funname, char* args) {
         out(-1, 0, x);
         return;
     } else if (!strcmp(funname, "decode")) {
+        // TODO: add matching encode?
         char* x = s = next();
         while (*x) {
             if (*x == '+') *x = ' ';
@@ -612,6 +615,7 @@ void funsubst(Out out, char* funname, char* args) {
 }
 
 int run(char* start, Out out) {
+    if (!start) return 0;
     char* s = start;
     
     removefuns(s);
@@ -738,6 +742,7 @@ static void jmlresponse(int req, char* method, char* path) {
     }
 
     // skip '/' if '/foo' not found
+    // TODO: for security - disallow!!!
     if (*path == '/' && !findfun(path)) path++;
     
     // TODO: errhhh..
@@ -769,10 +774,25 @@ static void jmlresponse(int req, char* method, char* path) {
 
     // TODO: unsafe to allow call of any function, maybe only allow call "/func" ?
     if (strchr(args, '=')) { // url on form /fun?var1=value1&var2=value2
-        // TODO: could do a decode that extracts parameters and match to fargs!
-        // for now, just let function decode and extract itself!
-        myout(-1, 0, args);
-    } else { // url on form /fun?arg1+arg2
+        // We wrap all extractions in a big decode, half non-kosher
+        myout(-1, 0, "[decode ");
+
+        // TODO: could extract parameters in correct order.
+        // for now, just extract values and put spaces between
+        // if in correct order, then it'll "work". LOL!
+        char* name = strtok(args, "=");
+        while (name) {
+            char* val = strtok(NULL, "&");
+            if (strcmp(name, "submit") != 0) { // not submit
+                myout(-1, 0, val);
+                myout(1, ' ', NULL);
+            }
+
+            name = strtok(NULL, "=");
+        }
+
+        myout(1, ']', NULL);
+    } else { // url stuff on form /fun?arg1+arg2
         myout(-1, 0, "[decode ");
         myout(-1, 0, args);
         myout(1, ']', NULL);
@@ -794,6 +814,8 @@ static void jmlresponse(int req, char* method, char* path) {
 
     // make a copy
     char* line = strdup(out);
+    fprintf(stderr, "\n\n++++++OUT=%s\n", out);
+    fprintf(stderr, "\n\n+++++LINE=%s\n", line);
     if (out) free(out); end = to = out = NULL;
 
     oneline(line, putt);
