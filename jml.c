@@ -141,10 +141,74 @@ FunDef* findfun(char* funname) {
     return NULL;
 }
 
+typedef struct Match {
+  char* start;
+  char* end;
+} Match;
+
+Match match(char *regexp, char *text, char* fun, Out out) {
+  #define MAXLEVELS 10
+  Match m[MAXLEVELS] = { 0 };
+  
+  // can't do forward declaration for "dynamic function"
+  int (*matchstar)(int c, char *regexp, char *text, int level);
+  
+  /* matchhere: search for regexp at beginning of text */
+  int Xmatchhere(char *regexp, char *text, int level) {
+    if (level >= MAXLEVELS) { fprintf(stderr, "{Regexp full %s}", regexp); return 0; }
+    if (!*regexp) { m[0].end = text; return 1; }
+    if (*regexp == '(') { m[++level].start = text; return Xmatchhere(regexp+1, text, level); }
+    if (*regexp == ')') { m[level].end = text; return Xmatchhere(regexp+1, text, level); }
+    if (regexp[1] == '*') return matchstar(*regexp, regexp+2, text, level);
+    if (*regexp == '$' && !regexp[1]) { if (!m[level].end) m[level].end = text; return *text == '\0'; }
+    if (*text && (*regexp == '.' || *regexp == *text))
+      return Xmatchhere(regexp+1, text+1, level);
+    return 0;
+  }
+
+  /* matchstar: search for c*regexp at beginning of text */
+  int Xmatchstar(int c, char *regexp, char *text, int level) {
+    do { /* a * matches zero or more instances */
+      if (Xmatchhere(regexp, text, level)) return 1;
+    } while (*text && (*text++ == c || c == '.'));
+    return 0;
+  }
+
+  int Xmatch(char* regexp, char* text, int level) {
+    if (*regexp == '^') return Xmatchhere(regexp+1, m[level].start = text, level);
+    do { /* must look even if string is empty */
+      if (Xmatchhere(regexp, m[level].start = text, level)) return 1;
+    } while (*text++);
+    return 0;
+  }
+
+  matchstar = Xmatchstar;
+  if (Xmatch(regexp, text, 0)) {
+    out(1, ' ', NULL);
+    out(1, '[', NULL);
+    out(-1, 0, fun);
+    int i;
+    // skip the "all" first match
+    for(i = 1; i < MAXLEVELS; i++) {
+       out(1, ' ', NULL);
+       char* s = m[i].start && m[i].end ? strndup(m[i].start, m[i].end - m[i].start) : NULL;
+       if (!s) break;
+       out(-1, 0, s);
+       fprintf(stderr, "   => '%s'./%s/ ... %d >%s<\n", text, regexp, i, s);
+    }
+    out(1, ']', NULL);
+    return m[0];
+  } else {
+    m[0] = (Match){0, 0};
+    return m[0];
+  }
+  #undef MAXLEVELS    
+}
+
 // TODO: find temporary func/closures... [func ARGS]...[/func], only store in RAM and get rid of between runs...
 void removefuns(char* s) {
     if (!s) return;
-    fprintf(stderr, "\nREMOVEFUNS:%s<<\n", s);
+    //fprintf(stderr, "\nREMOVEFUNS:%s<<\n", s);
     // remove [macro FUN ARGS]BODY[/macro...] and doing fundef() on them
     char *m = s, *p;
     while (m = p = strstr(m, "[macro ")) {
@@ -180,7 +244,7 @@ void removefuns(char* s) {
         char* user = strtok(NULL, " ]\n");
         char* comment = user ? user + strlen(user) + 1 : NULL;
         *end = 0;
-        fprintf(stderr, "\n[LOG >%s< >%s< >%s< >%s<]\n", lp, tm, user, comment);
+        //fprintf(stderr, "\n[LOG >%s< >%s< >%s< >%s<]\n", lp, tm, user, comment);
                     
         memmove(m, end, endend-end+1);
         // leave the /macro function to execute to store some facts if there
@@ -381,6 +445,14 @@ void funsubst(Out out, char* funname, char* args) {
         if (!f) return;
         *f = 0;
         out(-1, 0, x);
+        return;
+    } else if (!strcmp(funname, "match")) {
+        char* rest = args;
+        char* fun = next();
+        rest += strlen(fun) + 1;
+        char* regexp = next();
+        rest += strlen(regexp) + 1;
+        match(regexp, rest, fun, out);
         return;
     } else if (!strcmp(funname, "field")) { // extract simple xml, one value from one field
         // LOL: 'parsing' "xml" by char*!

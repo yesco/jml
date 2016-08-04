@@ -22,9 +22,9 @@ Match match(char *regexp, char *text) {
   /* matchhere: search for regexp at beginning of text */
   int Xmatchhere(char *regexp, char *text, int level) {
     if (level >= MAXLEVELS) { fprintf(stderr, "{Regexp full %s}", regexp); return 0; }
-    if (!*regexp) { if (!m[level].end) m[level].end = text; return 1; }
-    if (*regexp == '(') { m[level].start = text; return Xmatchhere(regexp+1, text, level); }
-    if (*regexp == ')') { m[level].end = text; return Xmatchhere(regexp+1, text, level+1); }
+    if (!*regexp) { m[0].end = text; return 1; }
+    if (*regexp == '(') { m[++level].start = text; return Xmatchhere(regexp+1, text, level); }
+    if (*regexp == ')') { m[level].end = text; return Xmatchhere(regexp+1, text, level); }
     if (regexp[1] == '*') return matchstar(*regexp, regexp+2, text, level);
     if (*regexp == '$' && !regexp[1]) { if (!m[level].end) m[level].end = text; return *text == '\0'; }
     if (*text && (*regexp == '.' || *regexp == *text))
