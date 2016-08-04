@@ -3,6 +3,7 @@
 
 // LOL use this instead
 // http://stackoverflow.com/questions/4040835/how-do-i-write-a-simple-regular-expression-pattern-matching-function-in-c-or-c
+// https://swtch.com/~rsc/regexp/regexp1.html
 
 int matchstar(int c, char *regexp, char *text);
 
@@ -37,10 +38,11 @@ int match(char *regexp, char *text) {
 char* regexp_hlp(char* s, char* re, char* mod, char* start, char* dore) {
   fprintf(stderr, "  == >%-20s< >%-20s< >%-20s< >%-20s< >%-20s<\n", s, re, mod, start, dore);
   if (!s || !re) return NULL;
+  if (!*re) return start;
+  
+  if (*re == '$') return *s ? NULL : start;
   if (*re == '^') return regexp_hlp(s, re+1, mod, start, NULL); // disable backtrack TODO: must be breakable???
 
-  if (!*re) return start;
-  if (*re == '$') return *s ? NULL : start;
   if (*re == '*') return regexp_hlp(s, re+1, mod, start, dore);
   if (*s && (*s == *re || *re == '.')) {
     char* x = regexp_hlp(s+1, re+1, mod, start, dore);
