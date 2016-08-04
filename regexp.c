@@ -1,8 +1,8 @@
-
 #include <stdio.h>
+#include <string.h>
 
 char* regexp_hlp(char* s, char* re, char* mod, char* start, char* dore) {
-  fprintf(stderr, "== >%-20s< >%-20s< >%-20s< >%-20s< >%-20s<\n", s, re, mod, start, dore);
+  fprintf(stderr, "  == >%-20s< >%-20s< >%-20s< >%-20s< >%-20s<\n", s, re, mod, start, dore);
   if (!s || !re) return NULL;
   if (!*re) return start;
   if (*re == '$') return *s ? NULL : start;
@@ -24,7 +24,63 @@ char* regexp(char* s, char* re, char* mod) {
   return regexp_hlp(s, re, mod, s, re);
 }
 
+int test(char* s, char* re, char* mod, char* expect) {
+  char* x = regexp(s, re, NULL);
+  int r = (expect == x);
+  if (!r && expect && x) r = (strcmp(expect, x) == 0);
+  printf("%s ---- test >%s< >%s< => >%s< got >%s<\n", r ? "OK" : "ERROR", s, re, expect, x);
+  return r ? 0 : 1;
+}
+
 void main() {
   // bAD!!! printf("MATCH: %s\n", regexp("ababcabcdabcde", "...............", NULL));
-  printf("MATCH: %s\n", regexp("x", "aa*", NULL));
+  int fails = 0
+    + test("a", "", NULL, "a")
+    + test("a", "a", NULL, "a")
+    + test("a", "x", NULL, NULL)
+    + test("aa", "aa", NULL, "aa")
+    + test("aa", "aaa", NULL, NULL)
+    + test("ab", "a", NULL, "ab")
+    + test("ab", "b", NULL, "b")
+    + test("aba", "b", NULL, "ba")
+    + test("aba", "ba", NULL, "ba")
+    + test("aababc", "ab", NULL, "ababc")
+    + test("aababc", "abc", NULL, "abc")
+    + test("aababcabcd", "abcd", NULL, "abcd")
+    + test("aababcabcd", "abcd", NULL, "abcd")
+
+    + test("a", ".", NULL, "a")
+    + test("a", "..", NULL, NULL)
+    + test("abba", "....", NULL, "abba")
+    + test("ababba", "....", NULL, "ababba")
+    + test("ababba", "abba", NULL, "abba")
+
+    + test("a", "^a", NULL, "a")
+    + test("b", "^a", NULL, NULL)
+    + test("ba", "^ba", NULL, "ba")
+    + test("ba", "^b", NULL, "ba")
+    + test("ba", "^a", NULL, NULL)
+
+    + test("a", "a$", NULL, "a")
+    + test("aa", "a$", NULL, "a")
+    + test("aaa", "a$", NULL, "a")
+    + test("axa", "a$", NULL, "a")
+
+    + test("a", "^aa$", NULL, NULL)
+    + test("aa", "^aa$", NULL, "aa")
+    + test("aaa", "^aa$", NULL, NULL)
+
+    + test("", "a*", NULL, "")
+    + test("a", "a*", NULL, "a")
+    + test("b", "a*", NULL, "b")
+    + test("aa", "a*", NULL, "aa")
+    + test("aa", "aa*", NULL, "aa")
+    + test("a", "aa*", NULL, "a")
+    + test("", "aa*", NULL, NULL)
+
+    + test("abba", "a*bba*", NULL, "bba") // TODO: should it do the biggests/greediest?
+    + test("abba", "^a*bba", NULL, "abba") // TODO: should it do the biggests/greediest?
+    + test("abba", "^a*bba*", NULL, "abba") // TODO: should it do the biggests/greediest?
+    ;
+  printf("FAILS %d\n", fails);
 }
