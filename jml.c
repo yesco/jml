@@ -407,6 +407,10 @@ void macro_subst(Out out, FunDef* f, char* args) {
 // At the current position in outstream get the body of funname
 // and replace the actual arguments into positions of formals.
 void funsubst(Out out, char* funname, char* args) {
+    void skipspace() {
+        while(*args == ' ') args++;
+    }
+    
     void outspace() {
         out(1, ' ', NULL);
     }
@@ -485,7 +489,11 @@ void funsubst(Out out, char* funname, char* args) {
         els = els ? els : "";
         s = e ? thn : els;
     }
-    else if (!strcmp(funname, "empty")) { char* x = next(); r = !x ? 1 : !strcmp(x, ""); }
+    else if (!strcmp(funname, "empty")) { char* x = next(); r = !x ? 1 : !*x; }
+    else if (!strcmp(funname, "has")) { char* x = next(); r = x && *x > 0; }
+    else if (!strcmp(funname, "is")) { char* x = next(); r = x && *x && (x[0] != '0' || x[1]) > 0; }
+    else if (!strcmp(funname, "number")) { char* x = next(); r = *x; while(*x && r) r = isdigit(*x++) && r && !*next(); }
+    else if (!strcmp(funname, "alpha")) { r = 0; while(*args) r += isalpha(*args++) > 0; }
     else if (!strcmp(funname, "equal")) r = strcmp(next(), next()) == 0;
     else if (!strcmp(funname, "cmp")) r = strcmp(next(), next());
     // we can modify the input strings, as long as they get shorter...
@@ -498,6 +506,25 @@ void funsubst(Out out, char* funname, char* args) {
     else if (!strcmp(funname, "map")) {
         char* fun = next(), *x;
         while (*(x = next())) outfun(fun, x);
+        return;
+    } else if (!strncmp(funname, "filter", 6)) {
+        char* pred = next();
+        char* fun = !strcmp(funname, "filter-do") ? next() : "identity";
+        char* x;
+        while (*(x = next())) {
+            // [[if [pred X] fun ignore] X]
+            out(1, '[', NULL);
+            out(1, '[', NULL);
+            out(-1, 0, "if ");
+            outfun(pred, x);
+            out(-1, 0, fun);
+            out(-1, 0, " ignore");
+            out(1, ']', NULL);
+            outspace();
+            out(-1, 0, x);
+            out(1, ']', NULL);
+            outspace();
+        }
         return;
     } else if (!strcmp(funname, "after")) {
         // TODO search for '\$' doesn't work... and '$' gives macro usage error...
@@ -517,6 +544,9 @@ void funsubst(Out out, char* funname, char* args) {
         out(-1, 0, x);
         return;
     } else if (!strcmp(funname, "match")) {
+        // TODO: name it match-do?
+        // TODO: - [match F a(b*)(cd*)e(.*)f acexxxxxfff] => [F c xxxxx] ... b position missing, quote mode?
+        // TODO: => [F {} {c} {xxxxx}] ???
         char* rest = args;
         char* fun = next();
         rest += strlen(fun) + 1;
@@ -532,9 +562,7 @@ void funsubst(Out out, char* funname, char* args) {
             // read arg (till next unquoted space, or end)
             char last = 0;
             while (*args && (last == '\\' || *args != ' ')) *d++ = last = *args++;
-
-            // skip space
-            while (*args && *args == ' ') args++;
+            skipspace();
         }
         *d = 0;
     } else if (!strncmp(funname, "split", 5)) {
@@ -578,9 +606,7 @@ void funsubst(Out out, char* funname, char* args) {
         int kl = strlen(key);
         memcpy(k, key, kl > 16 ? 16 : kl);
 
-        // skip space
-        while (*args && *args == ' ') args++;
-        
+        skipspace();
         // trim space at end
         char* last = args + strlen(args) - 1;
         while (*last == ' ') *last-- = 0;

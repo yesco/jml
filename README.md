@@ -209,27 +209,52 @@ Math
 - [iota 1 3] => 1 2 3
 - [iota 0 10 2] 
 
+Logic
+- [and 1 1 ...] => 1
+- [and 1 0 ...] => 0
+- [not 0] => 1
+- [not 7] => 0
+- [xor 0 0] = [xor 1 1] => 0
+- [xor 0 1] = [xor 1 0] => 1
+
+    val  X: empty  has  is  not number alpha
+    ========================================
+    [X   ]    1     0    0    1    0     0
+    [X  0]    0     1    0    1    1     0 
+    [X  1]    0     1    1    0    1     0
+    [X  a]    0     1    1    0    0     1
+
 Test
 - [if 0 THIS not] => THIS
 - [if X not THAT] => THAT
 - [empty] =>1
 - [empty ...] => 0
 - [empty    ] => 1
+
 - [equal A B] => 0
 - [cmp A B] => 1
 - [cmp B A] => -1
 - [cmp A A] => 0
 - lower upper
+
+- [length] => 0
 - [length 1 2 3] => 3
 - [length 11 22 33 44] => 4
+
 - [bytes] => 0
 - [bytes 1 2 3] => 5
 - [bytes 1 2 3 ] => 6
 - [bytes  1 2 3 ] => 7
 
 Lists
+- [ignore X] =>
+- [identity X ...] => X ...
+
+- [map F a b c ...] => [F a] [F b] [F c] [map F ...]
+- [filter P a b c ...] => [[if [P a] identity ignore] a] ...
+- [filter-do P F a b c ...] => [[if [P a] F ignore] a] ...
+
 - [nth 2 11 22 33] => 22
-- [map F A B C ...] => [F A] [F B] [F C] [map F ...]
 - [first A B] => A
 - [second A B C] => B
 - [third A B C D] => C
@@ -238,12 +263,14 @@ Lists
 Strings
 - [after X abcXzy] => zy
 - [before X abcXzy] = abc
-- [field name ksajf; sadflk dsaflk <name c='foo'>FISH</name> sdfl sadf asdfdsa] => {FISH}
+- [split a aAaBBaAa] => A BB A
+- [split-do inc a1a22a3a] => 2 23 4
+- [xml name ksajf; sadflk dsaflk <name c='foo'>FISH</name> sdfl sadf asdfdsa] => FISH
+- [match F a(b*)(cd*)e(.*)f abbbcexxxxxfff] => [F bbb c xxxxx]
+
 - [concat A B C D ...] => ABCD...
 - [concat A\ B C D ...] => A BCD...
 - [concat [concat a\ b c]] => A BCD...
-- [split a aAaBBaAa] => A BB A
-- [split-do inc a1a22a3a] => 2 23 4
 
 WEB, decode URL
 - [decode foo+bar%2b%25] => foo bar+%
