@@ -18,6 +18,10 @@
 // TODO: make linked list
 #define SIZE 1024
 
+// set to non-0 to trace evaluation on stderr
+
+int trace  = 0;
+
 // TODO: consider adding
 // - https://github.com/cesanta/slre (one file)
 
@@ -40,7 +44,7 @@ typedef int (*jmlputchartype)(int c);
 static jmlputchartype jmlputchar;
 
 // if s != NULL append it, 
-// if len == 0 actually print c
+// if len == 0 actually print c - means no need capture to later process
 // if len == 1 append c
 void myout(int len, char c, char* s) {
     len = s ? (len > 0 ? len : strlen(s)) : len;
@@ -74,6 +78,30 @@ void myout(int len, char c, char* s) {
         jmlputchar(c);
     }
     *to = 0;
+}
+
+// safe out of web input, will html quote potential injection characters
+// use this when reading from ANY external source (web, file, env variables etc)
+// TODO: How effective is this?
+// TODO: how does \\ handle?
+void safeout(int len, char c, char* s) {
+    myout(len, c, s); return;
+    if (len == 1) {
+        if (0) ;
+        else if (c == '\"') myout(-1, 0, "&quot;");
+        else if (c == '\'') myout(-1, 0, "&#39;");
+        else if (c == '&') myout(-1, 0, "&amp;");
+        else if (c == '[') myout(-1, 0, "&#91;");
+        else if (c == ']') myout(-1, 0, "&#93;");
+        else myout(1, c, NULL);
+    if (len < 0) {
+        len = strlen(s);
+        char c;
+        while (c = *s) safeout(1, *s++, NULL);
+    } else if (len == 0)
+        // nothing safe
+        safeout(0, c, NULL);
+    }
 }
 
 // TODO: make a linked list in FLASH
@@ -315,11 +343,17 @@ void funsubst(Out out, char* funname, char* args) {
         }
         // match extract each farg with actual arg
         int i = 0;
+        // skip space
         while (*args == ' ') *args++ = 0;
         while (*args && argc && i < argc + (farga[argc-1][0] == '$')) {
+            // skip space
             while (*args == ' ') *args++ = 0;
+
             arga[i] = args;
-            while (*args && *args != ' ') args++;
+
+            // read arg (till next unquoted space, or end)
+            char last = 0;
+            while (*args && (last == '\\' || *args != ' ')) last = *args++;
             i++;
         }
     }
@@ -377,7 +411,7 @@ void funsubst(Out out, char* funname, char* args) {
     else if (!strcmp(funname, "inc")) r = num() + 1;
     else if (!strcmp(funname, "dec")) r = num() - 1;
     else if (!strcmp(funname, "-")) r = num() - num();
-    else if (!strcmp(funname, "/")) r = num() * num();
+    else if (!strcmp(funname, "/")) r = num() / num();
     else if (!strcmp(funname, "%")) r = num() % num();
     else if (!strcmp(funname, ">")) r = num() > num();
     else if (!strcmp(funname, "<")) r = num() < num();
@@ -416,6 +450,7 @@ void funsubst(Out out, char* funname, char* args) {
     else if (!strcmp(funname, "lower")) { char* x = s = args; while (*x = tolower(*x)) x++; }
     else if (!strcmp(funname, "upper")) { char* x = s = args; while (*x = toupper(*x)) x++; }
     else if (!strcmp(funname, "length")) { r = 0; while (*next()) r++; }
+    else if (!strcmp(funname, "bytes")) { r = 0; while (*args++) r++; }
     else if (!strcmp(funname, "nth")) { int n = num(); s = ""; while (n-- > 0) s = next(); }
     else if (!strcmp(funname, "map")) {
         char* fun = next();
@@ -495,7 +530,11 @@ void funsubst(Out out, char* funname, char* args) {
         // essentially it concats strings by removing spaces
         // and copying the rest of string over the space
         while (*args) {
-            while (*args && *args != ' ') *d++ = *args++;
+            // read arg (till next unquoted space, or end)
+            char last = 0;
+            while (*args && (last == '\\' || *args != ' ')) *d++ = last = *args++;
+
+            // skip space
             while (*args && *args == ' ') args++;
         }
         *d = 0;
@@ -516,7 +555,7 @@ void funsubst(Out out, char* funname, char* args) {
         return;
     } else if (!strcmp(funname, "decode")) {
         // TODO: add matching encode?
-        char* x = s = next();
+        char* x = s = args;
         while (*x) {
             if (*x == '+') *x = ' ';
             if (*x == '/') *x = ' ';
@@ -538,9 +577,10 @@ void funsubst(Out out, char* funname, char* args) {
         int kl = strlen(key);
         memcpy(k, key, kl > 16 ? 16 : kl);
 
-        // trim leading space
+        // skip space
         while (*args && *args == ' ') args++;
-        // trime last space
+        
+        // trim space at end
         char* last = args + strlen(args) - 1;
         while (*last == ' ') *last-- = 0;
         
@@ -586,7 +626,8 @@ void funsubst(Out out, char* funname, char* args) {
 
         // trim leading space (and '{')
         while (*args && (*args == ' ' || *args == '{')) args++;
-        // trime last space
+
+        // trim space at end
         char* last = args + strlen(args) - 1;
         while (*last == ' ') *last-- = 0;
         
@@ -650,6 +691,7 @@ void funsubst(Out out, char* funname, char* args) {
         return;
     } else if (!strcmp(funname, "fargs")) {
         FunDef* f = findfun(next());
+        if (!f) return;
         char* p = f->args;
         while (*p) {
             // dequote [ and ]?
@@ -659,7 +701,7 @@ void funsubst(Out out, char* funname, char* args) {
         return;
     } else if (!strcmp(funname, "fbody")) {
         FunDef* f = findfun(next());
-        if (f) out(-1, 0, f->args);
+        if (!f) return;
         out(-1, 0, f->body);
         return;
     } else if (!strcmp(funname, "time")) {
@@ -671,6 +713,7 @@ void funsubst(Out out, char* funname, char* args) {
         return;
         // TODO: add parsing to int with strptime or gettime
     } else {
+        fprintf(stderr, "%(FAIL:%s %s)%", funname, args);
         out(-1, 0, "<font color=red>%(FAIL:");
         out(-1, 0, funname);
         out(1, ' ', NULL);
@@ -697,8 +740,10 @@ int run(char* start, Out out) {
     char* funend = NULL;
     char c;
     int doprint = 1;
+    int quote = 0;
     while (c = *s) {
-        if (c == '[') { // "EVAL"
+        if (c == '\\') quote = 1;
+        if (!quote && c == '[') { // "EVAL"
             // once we find an expression, we no longer can print/remove
             doprint = 0;
             if (exp) {
@@ -711,7 +756,7 @@ int run(char* start, Out out) {
             funend = NULL;
         } else if (exp) {
             // innermost function call, replace by body etc...
-            if (c == ']') { // "APPLY"
+            if (!quote && c == ']') { // "APPLY"
                 char* p = exp;
                 char* args = NULL;
 
@@ -740,6 +785,8 @@ int run(char* start, Out out) {
         } else { // retain for next loop
             out(1, c, NULL);
         }
+
+        if (c != '\\') quote = 0;
         // next
         s++;
     }
@@ -758,13 +805,21 @@ int oneline(char* s, jmlputchartype putt) {
     jmlputchar = putt;
 
     do {
+        // print each stage
+        if (trace) {
+            char *p = s;
+            fprintf(stderr, ">>>");
+            while (*p && *(p+1)) fputc(*p++, stderr);
+            fprintf(stderr, "<<<\n");
+        }
+
         if (!run(s, myout)) break;
 
         free(s);
         s = out;
         end = to = out = NULL;
     } while (1);
-    printf("%s", out); fflush(stdout);
+    //printf("%s", out); fflush(stdout);
 
     free(s);
     free(out);
@@ -795,6 +850,7 @@ static void jmlbody(char* buff, char* method, char* path) {
 
 int doexit = 0;
 
+// assume path is writable
 static void jmlresponse(int req, char* method, char* path) {
     printf("------------------------------ '%s' '%s'\n\n", method, path);
     if (!strcmp("/exit", method)) {
@@ -804,13 +860,13 @@ static void jmlresponse(int req, char* method, char* path) {
 
     // args will point to data after '?' or ' '
     char* args = strchr(path, '?');
+
     if (!args) args = strchr(path, ' ');
     if (!args) args = strchr(path+1, '/');
     if (!args) {
 	args = "";
     } else {
-        *args = 0;
-        args++;
+        *args++ = 0;
     }
 
     // skip '/' if '/foo' not found
@@ -831,23 +887,13 @@ static void jmlresponse(int req, char* method, char* path) {
     // TODO: 4. /?[fun+foo+bar]   => [/fun foo bar]
     // if '/fun' doesn't exists it'll try 'fun' -- TODO: safety problem? ;-)
     myout(1, '[', NULL);
-    myout(-1, 0, path);
+    safeout(-1, 0, path);
     myout(1, ' ', NULL);
-
-    // TODO: unsafe so we decode to [] allowing any code...
-    // http://localhost:1111/+/%5b*%209%209%5d
-    // TODO: could substitute to "[unsafe-XXX ...]" which would give error...
-    char* x = args;
-    while (*x) {
-        if (*x == '[') *x = '{';
-        if (*x == ']') *x = '}';
-        x++;
-    }
 
     // TODO: unsafe to allow call of any function, maybe only allow call "/func" ?
     if (strchr(args, '=')) { // url on form /fun?var1=value1&var2=value2
         // We wrap all extractions in a big decode, half non-kosher
-        myout(-1, 0, "[decode ");
+        myout(-1, 0, "[decode");
 
         // TODO: could extract parameters in correct order.
         // for now, just extract values and put spaces between
@@ -856,8 +902,8 @@ static void jmlresponse(int req, char* method, char* path) {
         while (name) {
             char* val = strtok(NULL, "&");
             if (strcmp(name, "submit") != 0) { // not submit
-                myout(-1, 0, val);
                 myout(1, ' ', NULL);
+                safeout(-1, 0, val);
             }
 
             name = strtok(NULL, "=");
@@ -866,13 +912,13 @@ static void jmlresponse(int req, char* method, char* path) {
         myout(1, ']', NULL);
     } else { // url stuff on form /fun?arg1+arg2
         myout(-1, 0, "[decode ");
-        myout(-1, 0, args);
+        safeout(-1, 0, args);
         myout(1, ']', NULL);
     }
 
     myout(1, ']', NULL);
     
-    printf("OUT=%s<\n", out);
+    //fprintf(stderr, "OUT>>>%s<<<\n", out);
 
     int putt(int c) {
         static int escape = 0;
@@ -886,13 +932,12 @@ static void jmlresponse(int req, char* method, char* path) {
 
     // make a copy
     char* line = strdup(out);
-    fprintf(stderr, "\n\n++++++OUT=%s\n", out);
-    fprintf(stderr, "\n\n+++++LINE=%s\n", line);
+    //fprintf(stderr, "\n\n++++++OUT=%s\n", out);
+    //fprintf(stderr, "\n\n+++++LINE=%s\n", line);
     if (out) free(out); end = to = out = NULL;
 
     oneline(line, putt);
-
-    // line is freed by oneline, output putt
+    // Note: line is freed by oneline, output putt
 }
 
 int main(int argc, char* argv[]) {
@@ -906,18 +951,25 @@ int main(int argc, char* argv[]) {
         return fputc(c, stdout);
     }
 
-    // parse argument
+    // parse arguments
     int argi = 1;
     int web = 0;
-    if (argc > argi && !strcmp(argv[argi++], "-w")) {
+    if (argc > argi && !strcmp(argv[argi], "-t")) {
+        argi++;
+        trace = 1;
+    }
+    if (argc > argi && !strcmp(argv[argi], "-w")) {
+        argi++;
         web = argc > argi ? atoi(argv[argi]) : 0;
         if (web > 0)
             argi++;
         else
             web = 1111;
     }
+    // get the state file if given
     char* state = argc > argi ? argv[argi++] : "jml.state";
-    //fprintf(stderr, "web=%d state=%s\n", web, state);
+
+    //fprintf(stderr, "trace=%d web=%d state=%s\n", trace, web, state);
 
     // Read previous state
     FILE* f  = fopen(state, "a+"); // position for read beginning, write always only appends
@@ -946,6 +998,7 @@ int main(int argc, char* argv[]) {
         char* line = NULL;
         do {
             // TODO: make it part of non-blocking loop!
+            fprintf(stderr, "> ");
             line = freadline(stdin);
             if (line) {
                 // TODO: how to handle macro def/invocations over several lines?

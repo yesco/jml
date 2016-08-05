@@ -1,6 +1,6 @@
-# jml - a "minimal" operating system
+# jml - a useful web minimal unikernel operating system
 
-TODO: find a better name?
+TODO: rename to [MagniOS](https://en.wikipedia.org/wiki/M%C3%B3%C3%B0i_and_Magni)
 
 ## Goal
 
@@ -45,6 +45,49 @@ Status: More "useless" than [Urbit](http://urbit.org/)!
 - callback verification [Magic cookie](https://en.wikipedia.org/wiki/Magic_cookie)
 - https://en.wikipedia.org/wiki/Merkle_tree
 - cheap hashes https://en.wikipedia.org/wiki/Tiger_(cryptography)
+
+## How to run
+
+### command line
+
+    ./run
+    
+### batch
+
+This allows a single command, or several to be run and output captured.
+
+    echo "[concat a b c]" | ./run 2>/dev/null
+
+### web
+
+To run it as a webserve on port 1111, or as given use the command below.
+Connect to it as [localhost:1111/](localhost:1111/).
+
+    ./run -w [PORT]
+
+### debugging using tracing
+
+    unix> echo "[+ [map inc 1 2 3]]" | ./run -t
+    >>>[+ [map inc 1 2 3]]<<<
+    >>>[+ [inc 1] [inc 2] [inc 3] ]<<<
+    >>>[+ 2 3 4 ]<<<
+    >>>9<<<
+    9
+    
+
+    unix> echo '[macro fac $n][* [iota 1 $n]][/macro]' | ./run
+      [appended fac to file]
+    
+    unix> echo "[fac 5]" | ./run -t
+    >>>[fac 5]<<<
+    >>>[* [iota 1 5]]<<<
+    >>>[* 1 2 3 4 5 ]<<<
+    >>>120<<<
+    120
+
+
+# Language
+
 ## simple string based evaluation
 
     foo => foo
@@ -137,7 +180,7 @@ it on the net, so what's fast anyway?
 ## built-in functions
 
 Math
-- * % inc dec > < >= <= = !=
+- % inc dec > < >= <= = !=
 - [+ 1 2 3 4] => 10
 - [* 1 2 3 4] => 24
 - [iota 1 3] => 1 2 3
@@ -150,7 +193,9 @@ Test
 - [empty ...] => 0
 - [empty    ] => 1
 - [equal A B] => 0
-- [cmp A B] => (A cmp B)
+- [cmp A B] => 1
+- [cmp B A] => -1
+- [cmp A A] => 0
 - lower upper
 - [length 1 2 3] = 3
 - [length 11 22 33 44] = 4
@@ -158,12 +203,18 @@ Test
 Lists
 - [nth 2 11 22 33] => 22
 - [map F A B C ...] => [F A] [F B] [F C] [map F ...]
+- [first A B] => A
+- [second A B C] => B
+- [third A B C D] => C
+- [rest A B C D] => B C D
 
 Strings
 - [after X abcXzy] => zy
 - [before X abcXzy] = abc
 - [field name ksajf; sadflk dsaflk <name c='foo'>FISH</name> sdfl sadf asdfdsa] => {FISH}
 - [concat A B C D ...] => ABCD...
+- [concat A\ B C D ...] => A BCD...
+- [concat [concat a\ b c]] => A BCD...
 - [split a aAaBBaAa] => A BB A
 
 WEB, decode URL
@@ -178,6 +229,33 @@ Storage/persistent/database
 
 Failure
 - [xyz sadfasdf] => (%FAIL: xyz sadfasdf)
+
+### Note on quoting
+
+Since everything works by substitution (close to lambda calculus?), the need for
+quoting is low. This is normally called interpolation in languages as Perl. In JML
+it's a little different as the interpolated string is continously interpolated by
+substitutions of [fun ...] "calls". However, as it's uses '[', ']', and ' ' as significant
+these now instead need to be quoted. LOL. However, for the domain of email. This is "convenient".
+
+This is how to quote these characters
+- A\ B is interpreted as one parameter in calling, see concat above
+- \[+ 3 4\] will print [+ 3 4] and not 7
+
+#### Safety, "SQL Injection"
+
+In order to not allow injection, certain "web" characters are quoted on "input" from
+the web. These are: < > \[ \] &amp; ' "
+
+#### Unicode
+
+TODO: Haha, come again? Don't you know the world consists of bits and bytes?
+
+Seriously, the web is multilingular, and I travel in china, use swedish so UTF-8 is a reasonable requirement.
+
+[UTF-8](https://en.wikipedia.org/wiki/UTF-8):
+
+"And ASCII bytes do not occur when encoding non-ASCII code points into UTF-8, making UTF-8 safe to use within most programming and document languages that interpret certain ASCII characters in a special way, e.g. as end of string."
 
 ### Security/Encryption/(TEA)[https://en.wikipedia.org/wiki/Tiny_Encryption_Algorithm]
 - [encrypt FOOBAR] => {39CE0CD92EEBACC8}
