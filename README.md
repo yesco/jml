@@ -6,6 +6,17 @@ TODO: rename to [MagniOS](https://en.wikipedia.org/wiki/M%C3%B3%C3%B0i_and_Magni
 
 Simple online programmable virtual physical computer with built in persistent "memory".
 
+## Woa!?
+
+This is a [First Principle's](https://en.wikipedia.org/wiki/First_principle) project.
+It means it starts from "scratch" with minimal requirements. Elon Musk uses this as
+his [innovation principle](http://99u.com/workbook/20482/how-elon-musk-thinks-the-first-principles-method).
+
+## Requirements
+
+C (gcc) compiler, and simple unix style standard library calls.
+For security no external libraries are used.
+
 ## Why
 
 The idea of a minimal OS is coming up again, maybe recently (now is
