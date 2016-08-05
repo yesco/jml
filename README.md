@@ -12,6 +12,11 @@ This is a [First Principle's](https://en.wikipedia.org/wiki/First_principle) pro
 It means it starts from "scratch" with minimal requirements. Elon Musk uses this as
 his [innovation principle](http://99u.com/workbook/20482/how-elon-musk-thinks-the-first-principles-method).
 
+For example: "In physics, a calculation is said to be from first
+principles, or ab initio, if it starts directly at the level of
+established laws of physics and does not make assumptions such as
+empirical model and fitting parameters." - wikipedia
+
 ## Requirements
 
 C (gcc) compiler, and simple unix style standard library calls.
