@@ -197,8 +197,12 @@ Test
 - [cmp B A] => -1
 - [cmp A A] => 0
 - lower upper
-- [length 1 2 3] = 3
-- [length 11 22 33 44] = 4
+- [length 1 2 3] => 3
+- [length 11 22 33 44] => 4
+- [bytes] => 0
+- [bytes 1 2 3] => 5
+- [bytes 1 2 3 ] => 6
+- [bytes  1 2 3 ] => 7
 
 Lists
 - [nth 2 11 22 33] => 22

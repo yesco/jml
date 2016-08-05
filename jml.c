@@ -713,7 +713,7 @@ void funsubst(Out out, char* funname, char* args) {
         return;
         // TODO: add parsing to int with strptime or gettime
     } else {
-        fprintf(stderr, "%(FAIL:%s %s)%", funname, args);
+        fprintf(stderr, "%%(FAIL:%s %s)%%", funname, args);
         out(-1, 0, "<font color=red>%(FAIL:");
         out(-1, 0, funname);
         out(1, ' ', NULL);
