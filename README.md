@@ -101,6 +101,13 @@ Connect to it as [localhost:1111/](localhost:1111/).
     >>>120<<<
     120
 
+### options for performance/info
+
+    -q       == quiet mode, only writes %%error messages
+             == normal mode, start webserver, each request one line
+    -v       == log timing and reductions info
+    -v -v    == log reallocs
+    -v -v -v == log allocs too
 
 # Language
 
@@ -236,6 +243,7 @@ Strings
 - [concat A\ B C D ...] => A BCD...
 - [concat [concat a\ b c]] => A BCD...
 - [split a aAaBBaAa] => A BB A
+- [split-do inc a1a22a3a] => 2 23 4
 
 WEB, decode URL
 - [decode foo+bar%2b%25] => foo bar+%

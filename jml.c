@@ -19,8 +19,20 @@
 #define SIZE 1024
 
 // set to non-0 to trace evaluation on stderr
-
 int trace  = 0;
+// set to > 0 to write perf messages to stderr
+// -1 = -q quiet mode
+//  0 = normal: webserver, urls, appends
+//  1 = timing
+//  2 = memory allocs
+//  3 = memory reallocs
+int verbose  = 0;
+
+// stats
+int ramtotal = 0;
+int rammax = 0;
+int ramreallocs = 0;
+int ramlast = 0;
 
 // TODO: consider adding
 // - https://github.com/cesanta/slre (one file)
@@ -50,7 +62,10 @@ void myout(int len, char c, char* s) {
     len = s ? (len > 0 ? len : strlen(s)) : len;
     // enough space?
     if (!out) {
-        int sz = 1024;
+        int sz = 1024 + ramlast;
+        ramtotal += sz;
+        ramlast = sz;
+        if (verbose > 2) fprintf(stderr, "{--ALLOC %d--}", sz);
         to = out = malloc(sz);
         memset(out, 0, sz);
         end = out + sz;
@@ -59,10 +74,14 @@ void myout(int len, char c, char* s) {
     if (to + len >= end) {
         *to = 0;
         int sz = end-out + 1024 + len;
+        ramtotal += sz;
+        rammax = sz > rammax ? sz : rammax;
+        ramlast = sz;
+        ramreallocs++;
+        if (verbose > 1) fprintf(stderr, "{--REALLOC %d--}", sz);
         char* nw = realloc(out, sz);
-        fprintf(stderr, "[REALLOC %d]", sz);
         if (!nw) {
-            fprintf(stderr, "ERRROR: realloc error!");
+            fprintf(stderr, "\n%%ERRROR: realloc error!");
             exit(2);
         }
         to = to - out + nw;
@@ -133,10 +152,10 @@ void fprintFun(FILE* f, int i) {
     int r = fprintf(f, "[macro %s%s%s]%s[/macro %d %s %s %s]\n",
                     fun->name, strlen(fun->args) ? " " : "", fun->args, fun->body,
                     last_logpos, iso, user, comment);
-    if (r < 0) fprintf(stderr, "\n%%Writing function %s at position %d failed\n", fun->name, i);
+    if (r < 0) { fprintf(stderr, "\n%%Writing function %s at position %d failed\n", fun->name, i); exit(77); }
     fflush(f);
 
-    fprintf(stderr, "\t[appended %s to file]", fun->name);
+    if (verbose >= 0) fprintf(stderr, "{--APPENDED %s to file--}", fun->name);
 }
 
 void fprintAllFuns(FILE* f) {
@@ -148,7 +167,7 @@ void fprintAllFuns(FILE* f) {
 // TODO: how to handle closures/RAM and GC?
 void fundef(char* funname, char* args, char* body) {
     //printf("\nFUNDEF: %s[%s]>>>%s<<<\n", funname, args, body);
-    if (functions_count > SIZE) { fprintf(stderr, "OUT OF FUNCTIONS!\n"); exit(1); }
+    if (functions_count > SIZE) { fprintf(stderr, "\n%%OUT OF FUNCTIONS!\n"); exit(1); }
     int i = functions_count;
     FunDef *f = &functions[functions_count++];
     // take a copy as the data comes from transient current state of program
@@ -183,7 +202,7 @@ Match match(char *regexp, char *text, char* fun, Out out) {
   
   /* matchhere: search for regexp at beginning of text */
   int Xmatchhere(char *regexp, char *text, int level) {
-    if (level >= MAXLEVELS) { fprintf(stderr, "{Regexp full %s}", regexp); return 0; }
+    if (level >= MAXLEVELS) { fprintf(stderr, "\n%%Regexp full %s", regexp); return 0; }
     if (!*regexp) { m[0].end = text; return 1; }
     if (*regexp == '(') { m[++level].start = text; return Xmatchhere(regexp+1, text, level); }
     if (*regexp == ')') { m[level].end = text; return Xmatchhere(regexp+1, text, level); }
@@ -265,7 +284,7 @@ void removefuns(char* s) {
             if (logpos > last_logpos)
                 last_logpos = logpos;
             else
-                fprintf(stderr, "[/macro.error: logpos=%d < last_logpos=%d]", logpos, last_logpos);
+                fprintf(stderr, "\n%%[/macro.error: logpos=%d < last_logpos=%d]", logpos, last_logpos);
         }
         char* tm = strtok(NULL, " ]\n");
 
@@ -319,10 +338,8 @@ long btea(long* v, long n, long* k) {
 
 #define HEX2INT(x) ({ int _x = toupper(x); _x >= 'A' ? _x - 'A' + 10 : _x - '0'; })
 
-// At the current position in outstream get the body of funname
-// and replace the actual arguments into positions of formals.
-void funsubst(Out out, char* funname, char* args) {
-    //fprintf(stderr, "\n(((%s,%s)))\n", funname, args);
+
+void macro_subst(Out out, FunDef* f, char* args) {
     #define MAX_ARGS 10
     int argc = 0;
     char* farga[MAX_ARGS] = {0};
@@ -359,6 +376,54 @@ void funsubst(Out out, char* funname, char* args) {
     }
     #undef MAX_ARGS
 
+    char* body = f->body;
+    char* fargs = f->args;
+
+    parseArgs(fargs, args);
+        
+    char c;
+    while (c = *body) {
+        if (c == '$' || c == '@' ) {
+            // find named prefix if match formal argument name
+            int i = 0;
+            while (i < argc && strncmp(body, farga[i], fargalen[i])) i++;
+            
+            // substitute
+            if (i < argc) {
+                out(-1, 0, arga[i]);
+                body += fargalen[i];
+            } else {
+                fprintf(stderr, "\n%%Argument: %s not found!\n", strtok(body, " "));
+            }
+        } else {
+            if (c == '\\') out(1, *body++, NULL);
+            out(1, *body++, NULL);
+        }
+    }
+    return;
+} 
+
+
+// At the current position in outstream get the body of funname
+// and replace the actual arguments into positions of formals.
+void funsubst(Out out, char* funname, char* args) {
+    void outspace() {
+        out(1, ' ', NULL);
+    }
+
+    // if FUN => '[FUN VAL]'
+    void outfun(char* fun, char* val) {
+        if (!val || !*val) return;
+        if (fun) {
+            out(1, '[', NULL);
+            out(-1, 0, fun);
+            outspace();
+        }
+        out(-1, 0, val);
+        if (fun) out(1, ']', NULL);
+        outspace();
+    }
+    
     void outnum(int n) {
         int len = snprintf(NULL, 0, "%d", n);
         char x[len+1];
@@ -366,9 +431,12 @@ void funsubst(Out out, char* funname, char* args) {
         out(len, 0, x);
     }
 
+    char* rest = args;
+    
     char* next() {
         char* a = args; args = NULL; // strtok will get only once
         char* r = strtok(a, " ");
+        rest += r ? strlen(r) + 1 : 0;
         return r ? r : ""; // returning NULL may crash stuff...
     }
     int num() { return atoi(next()); }
@@ -381,33 +449,7 @@ void funsubst(Out out, char* funname, char* args) {
     int r = -4711;
     char* s = NULL;
     FunDef *f = findfun(funname);
-    if (f) {
-        char* body = f->body;
-        char* fargs = f->args;
-
-        parseArgs(fargs, args);
-        
-        char c;
-        while (c = *body) {
-            if (c == '$' || c == '@' ) {
-                // find named prefix if match formal argument name
-                int i = 0;
-                while (i < argc && strncmp(body, farga[i], fargalen[i])) i++;
-
-                // substitute
-                if (i < argc) {
-                    out(-1, 0, arga[i]);
-                    body += fargalen[i];
-                } else {
-                    fprintf(stderr, "\n%%Argument: %s not found!\n", strtok(body, " "));
-                }
-            } else {
-                if (c == '\\') out(1, *body++, NULL);
-                out(1, *body++, NULL);
-            }
-        }
-        return;
-    } 
+    if (f) return macro_subst(out, f, args);
     else if (!strcmp(funname, "inc")) r = num() + 1;
     else if (!strcmp(funname, "dec")) r = num() - 1;
     else if (!strcmp(funname, "-")) r = num() - num();
@@ -433,7 +475,7 @@ void funsubst(Out out, char* funname, char* args) {
         while (f < t) {
             outnum(f);
             f += s;
-            out(1, ' ', NULL);
+            outspace();
         }
         return;
     }
@@ -452,17 +494,10 @@ void funsubst(Out out, char* funname, char* args) {
     else if (!strcmp(funname, "length")) { r = 0; while (*next()) r++; }
     else if (!strcmp(funname, "bytes")) { r = 0; while (*args++) r++; }
     else if (!strcmp(funname, "nth")) { int n = num(); s = ""; while (n-- > 0) s = next(); }
+    // TODO: parse json - https://github.com/zserge/jsmn/blob/master/jsmn.c
     else if (!strcmp(funname, "map")) {
-        char* fun = next();
-        char* x = NULL;
-        while (*(x = next())) {
-            out(1, '[', NULL);
-            out(-1, 0, fun);
-            out(1, ' ', NULL);
-            out(-1, 0, x);
-            out(1, ']', NULL);
-            out(1, ' ', NULL);
-        }
+        char* fun = next(), *x;
+        while (*(x = next())) outfun(fun, x);
         return;
     } else if (!strcmp(funname, "after")) {
         // TODO search for '\$' doesn't work... and '$' gives macro usage error...
@@ -489,42 +524,6 @@ void funsubst(Out out, char* funname, char* args) {
         rest += strlen(regexp) + 1;
         match(regexp, rest, fun, out);
         return;
-    } else if (!strcmp(funname, "field")) { // extract simple xml, one value from one field
-        // LOL: 'parsing' "xml" by char*!
-        char* x = args;
-        char* name = next();
-        char needle[strlen(name) + 2];
-        *needle = 0;
-        strcat(needle, "<");
-        strcat(needle, name);
-        // can be terminated by ' ' or '>' hmmm.
-        x += strlen(name) + 1;
-        while (*x) {
-            char* f = strstr(x, needle);
-            if (!f) return;
-            f += strlen(needle);
-            if (*f == '>' || *f == ' ') {
-                char* start = strchr(f, '>');
-                if (start) {
-                    start++;
-                    char endneedle[strlen(name) + 4];
-                    *endneedle = 0;
-                    strcat(endneedle, "</");
-                    strcat(endneedle, name);
-                    strcat(endneedle, ">");
-                    char* end = strstr(start, endneedle);
-                    if (end) {
-                        *end = 0;
-                        out(1, '{', NULL);
-                        out(-1, 0, start);
-                        out(1, '}', NULL);
-                        return;
-                    }
-                }
-            }
-            x = f;
-        }
-        return;
     } else if (!strcmp(funname, "concat")) {
         s = args; char* d = args;
         // essentially it concats strings by removing spaces
@@ -538,20 +537,22 @@ void funsubst(Out out, char* funname, char* args) {
             while (*args && *args == ' ') args++;
         }
         *d = 0;
-    } else if (!strcmp(funname, "split")) {
+    } else if (!strncmp(funname, "split", 5)) {
         char* x = args;
+        char* fun = !strcmp(funname, "split-do") ? next() : NULL;
+        if (fun) x += strlen(fun) + 1;
         char* needle = next();
         x += strlen(needle) + 1;
+        ///        printf("SPLIT: >%s< >%s< DATA>%s<\n", fun, needle, x);
         while (*x) {
             char* f = strstr(x, needle);
             if (!f) break;
             *f = 0;
-            // TODO: since output is smaller (replace needle with ' '!)
-            out(-1, 0, x);
-            out(1, ' ', NULL);
+            outfun(fun, x);
             x = f + strlen(needle);
         }
-        out(-1, 0, x);
+        // output rest
+        outfun(fun, x);
         return;
     } else if (!strcmp(funname, "decode")) {
         // TODO: add matching encode?
@@ -662,6 +663,8 @@ void funsubst(Out out, char* funname, char* args) {
         }
         return;
     } else if (!strcmp(funname, "data")) {
+        // [data] => list of ID
+        // [data ID VAL] => VAL (stores)
         s = args;
         char* id = next();
         if (!id || !strlen(id)) {
@@ -713,7 +716,7 @@ void funsubst(Out out, char* funname, char* args) {
         return;
         // TODO: add parsing to int with strptime or gettime
     } else {
-        fprintf(stderr, "%%(FAIL:%s %s)%%", funname, args);
+        fprintf(stderr, "\n%%(FAIL:%s %s)%%", funname, args);
         out(-1, 0, "<font color=red>%(FAIL:");
         out(-1, 0, funname);
         out(1, ' ', NULL);
@@ -799,26 +802,35 @@ int run(char* start, Out out) {
 // no return, just output on "stdout"
 // TODO: how to handle macro def/invocations over several lines?
 int oneline(char* s, jmlputchartype putt) {
+    //fprintf(stderr, "\n!!!!!!!!!!!!!!!!!!!%s<<<<<<<\n", s);
+    if (!s || !*s) return 0;
     clock_t start = clock();
     // temporary change output method
     void* stored = jmlputchar;
     jmlputchar = putt;
 
+    int reductions = 0;
+    int cycles = 0;
     do {
         // print each stage
         if (trace) {
             char *p = s;
             fprintf(stderr, ">>>");
-            while (*p && *(p+1)) fputc(*p++, stderr);
+            while (*p) fputc(*p++, stderr);
             fprintf(stderr, "<<<\n");
         }
 
-        if (!run(s, myout)) break;
-
+        int r = run(s, myout);
+        cycles++;
+        if (!r) break;
+        reductions += r;
+        
+        // TODO: maybe make run return out? simplify...
+        ramlast = strlen(s);
         free(s);
         s = out;
         end = to = out = NULL;
-    } while (1);
+    } while (s && *s);
     //printf("%s", out); fflush(stdout);
 
     free(s);
@@ -827,8 +839,17 @@ int oneline(char* s, jmlputchartype putt) {
     
     // restore output method
     jmlputchar = stored;
+
+    // stats
     int t = (clock() - start) * (1000000 / CLOCKS_PER_SEC); // noop!
-    //fprintf(stderr, "...(%d us)...", t);
+    if (verbose > 0) fprintf(stderr, "\n{--%d reductions for %d cycles in %d us--}", reductions, cycles, t);
+    if (verbose > 0) fprintf(stderr, "{--maxlen: %d bytes reallocs %d--}\n", rammax, ramreallocs);
+
+    ramtotal = 0;
+    rammax = 0;
+    ramreallocs = 0;
+    ramlast = 0;
+
     return t;
 }
 
@@ -852,7 +873,8 @@ int doexit = 0;
 
 // assume path is writable
 static void jmlresponse(int req, char* method, char* path) {
-    printf("------------------------------ '%s' '%s'\n\n", method, path);
+    if (verbose >= 0) fprintf(stderr, "\n{------------------------------ '%s' '%s' --}", method, path);
+    if (verbose > 1) fputc('\n', stderr);
     if (!strcmp("/exit", method)) {
         doexit = 1;
         return;
@@ -954,32 +976,48 @@ int main(int argc, char* argv[]) {
     // parse arguments
     int argi = 1;
     int web = 0;
-    if (argc > argi && !strcmp(argv[argi], "-t")) {
-        argi++;
-        trace = 1;
-    }
-    if (argc > argi && !strcmp(argv[argi], "-w")) {
-        argi++;
-        web = argc > argi ? atoi(argv[argi]) : 0;
-        if (web > 0)
+    char* state = "jml.state";
+
+    while (argc > argi) {
+        if (!strcmp(argv[argi], "-v")) {
             argi++;
-        else
-            web = 1111;
+            verbose++;
+        } else if (!strcmp(argv[argi], "-q")) { // quiet
+            argi++;
+            verbose = -1;
+        } else if (!strcmp(argv[argi], "-t")) {
+            argi++;
+            trace = 1;
+        } else if (!strcmp(argv[argi], "-w")) {
+            argi++;
+            web = argc > argi ? atoi(argv[argi]) : 0;
+            if (web > 0)
+                argi++;
+            else
+                web = 1111;
+        } else if (argv[argi][0] != '-') {
+            argi++;
+            state = argv[argi];
+        }
     }
-    // get the state file if given
-    char* state = argc > argi ? argv[argi++] : "jml.state";
 
     //fprintf(stderr, "trace=%d web=%d state=%s\n", trace, web, state);
 
     // Read previous state
+    verbose--; // make it somewhat more silent during startup
     FILE* f  = fopen(state, "a+"); // position for read beginning, write always only appends
     while (f && !feof(f)) {
         char* line = freadline(f);
         if (!line) break;
-
-        oneline(line, putstdout);
+        int len = strlen(line);
+        if (len) {
+            // remove end newline
+            if (line[len-1] == '\n') line[len-1] = 0;
+            if (*line) oneline(line, putstdout);
+        }
     }
     if (out) { free(out); end = to = out = NULL; }
+    verbose++;
 
     // Keep file open to append new defs
     jml_state = f;
@@ -988,7 +1026,7 @@ int main(int argc, char* argv[]) {
     if (web) {
         int www = httpd_init(web);
         if (www < 0 ) { printf("ERROR.errno=%d\n", errno); return -1; }
-        printf("\n%%Webserver started on port=%d\n", web);
+        if (verbose >= 0) fprintf(stderr, "\n{{--Webserver started on port=%d--}\n", web);
         doexit = 0;
         // simple single threaded semantics/monitor/object/actor
         while (!doexit) {
@@ -998,11 +1036,15 @@ int main(int argc, char* argv[]) {
         char* line = NULL;
         do {
             // TODO: make it part of non-blocking loop!
-            fprintf(stderr, "> ");
+            fprintf(stderr, "\n> ");
             line = freadline(stdin);
             if (line) {
+                int len = strlen(line);
+                // remove end newline
+                if (line[len-1] == '\n') line[len-1] = 0;
                 // TODO: how to handle macro def/invocations over several lines?
                 oneline(line, putstdout);
+                fflush(stdout);
             }
         } while (line);
     }
