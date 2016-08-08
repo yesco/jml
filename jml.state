@@ -3,15 +3,10 @@
 [macro ignore][/macro]
 [macro identity @all]@all[/macro]
 [macro -- @comment][/macro]
-[macro param $id @data][decode [before & [after &$id= &@data&]]][/macro]
-[macro first $first]$first[/macro]
-[macro second $first $second]$second[/macro]
-[macro third $first $second $third]$third[/macro]
-[macro rest $first @rest]@rest[/macro]
-[macro dup @all]@all @all[/macro]
-[macro xml $tag @xml][before </$tag> [after > [after <$tag @xml]]][/macro]
 
-[macro replace $fun $what @txt][@txt][/macro]
+[-- math]
+[macro min $a $b][if [> $a $b] $b $a][/macro]
+[macro max $a $b][if [< $a $b] $b $a][/macro]
 
 [macro fac $n][* [iota 1 $n]][/macro]
 
@@ -20,12 +15,30 @@
 [macro xor $a $b][= [is $a] [is $b]][/macro]
 [macro not $first][if [is $first] 0 1][/macro]
 
-[-- system info --]
-[macro /about]JML Unikernel, (C) 2016 Jonas S Karlsson, [link [dup https://github.com/yesco/jml]]<hr>\n[/macro]
-[macro help]Math   : inc dec - / % > < >= <= = != + * (iota FROM TO STEP)\nString : empty equal cmp lower upper after before concat (split USING TEXT) (split-do FUN USING TEXT)\nRegexp: (match FUN REGEXP TEXT) # ^ab(c*).(x.*)y\$ \nX/HTML : (xml NAME TEXT) decode encrypt encrypt-eval decrypt decrypt-eval\nList   : length nth (map FUN ...) (filter PRED ...) (filter-do PRED FUN ...)\nSystem : time (datas PREFIX) (data ID TEXT) (data-ID) funcs fargs fbody\nFuncs  : [funcs]\n[/macro]
-[macro /favicon.ico][-- make it shut up!][/macro]
+[-- list]
+[macro reduce $fun $a $b @text][[if [empty @text] rest reduce] $fun [$fun $a $b] @text][/macro]
+
+[-- strings]
+[macro first $first]$first[/macro]
+[macro second $first $second]$second[/macro]
+[macro third $first $second $third]$third[/macro]
+[macro rest $first @rest]@rest[/macro]
+[macro dup @all]@all @all[/macro]
+[macro xml $tag @xml][before </$tag> [after > [after <$tag @xml]]][/macro]
+
+[macro gt $a $b][< [cmp $a $b] 0][/macro]
+[macro gte $a $b][<= [cmp $a $b] 0][/macro]
+[macro lt $a $b][> [cmp $a $b] 0][/macro]
+[macro lte $a $b][>= [cmp $a $b] 0][/macro]
+[macro big $a $b][if [lt $a $b] $b $a][/macro]
+[macro small $a $b][if [gt $a $b] $b $a][/macro]
+[macro biggest @all][reduce big @all][/macro]
+[macro smallest @all][reduce small @all][/macro]
+
+[macro replace $fun $what @txt][@txt][/macro][-- TODO: this is of course not working...]
 
 [-- basic html --]
+[macro param $id @data][decode [before & [after &$id= &@data&]]][/macro]
 [macro li @txt]<li>@txt</li>[/macro]
 [macro italic @txt]<i>@txt</i>[/macro]
 [macro bold @txt]<i>@txt</i>[/macro]
@@ -42,7 +55,12 @@
 [macro sys-header @title][header @title][/about][/macro]
 [macro footer]</body></html>[/macro]
 
-[-- basic system app --]
+[-- system info --]
+[macro /about]JML Unikernel, (C) 2016 Jonas S Karlsson, [link [dup https://github.com/yesco/jml]]<hr>\n[/macro]
+[macro help]Math   : inc dec - / % > < >= <= = != + * (iota FROM TO STEP)\nString : empty equal cmp lower upper after before concat (split USING TEXT) (split-do FUN USING TEXT)\nRegexp: (match FUN REGEXP TEXT) # ^ab(c*).(x.*)y\$ \nX/HTML : (xml NAME TEXT) decode encrypt encrypt-eval decrypt decrypt-eval\nList   : length nth (map FUN ...) (filter PRED ...) (filter-do PRED FUN ...)\nSystem : time (datas PREFIX) (data ID TEXT) (data-ID) funcs fargs fbody\nFuncs  : [funcs]\n[/macro]
+[macro /favicon.ico][-- make it shut up!][/macro]
+
+[-- basic system html app --]
 [macro isweb $fun][after / $fun][/macro]
 [macro webfuncs][map isweb [funcs]][/macro]
 [macro fargs-dollar @txt]<br/>[[if [empty [after \$ @txt]] ignore input] [after \$ @txt]][/macro]
@@ -61,12 +79,19 @@
 [macro /list][sys-header List Data][map f-li-nk [datas]][footer][/macro]
 
 [-- routing --]
-[macro route $id][datas data-route-($id)][/macro]
+[macro route-match $id $x][match data-route-$id [datas data-route-]][/macro]
+[macro route $id][funcs data-route- data-route-$id][/macro]
 
 [-- user updates -- ]
-[macro data-fish]CRAP[/macro 0 2016-08-04T08:48:09Z  ]
-[macro quote @txt]{@txt}[/macro 1 2016-08-04T18:56:25Z TODO: remove? ]
+[macro data-fish]CRAP[/macro 1 2016-08-04T08:48:09Z  ]
+[macro quote @txt]{@txt}[/macro 2 2016-08-04T18:56:25Z TODO: remove? ]
 [macro data-wiki-hong-kong]\n=Hong Kong\nIs a temperated (as in always warm except when cold)\nsmall office\n[/macro]
-[macro data-foo]bar[/macro 6 2016-08-05T14:33:53Z  ]
-[macro data-fish]gurka[/macro 7 2016-08-05T14:53:45Z  ]
+[macro data-foo]bar[/macro 4 2016-08-05T14:33:53Z  ]
+[macro data-fish]gurka[/macro 5 2016-08-05T14:53:45Z  ]
 
+
+
+[macro data-route-03FBCD]http://www.foo.bar:4711[/macro 6 2016-08-08T14:46:00Z  ]
+[macro data-route-3053533535]http://www.fish.com:8080/[/macro 7 2016-08-08T14:46:20Z  ]
+[macro data-route-3053]http://small.one/[/macro 8 2016-08-08T14:46:37Z  ]
+[macro data-route][/macro 9 2016-08-08T14:49:09Z  ]

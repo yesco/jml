@@ -258,6 +258,7 @@ void removefuns(char* s) {
     //fprintf(stderr, "\nREMOVEFUNS:%s<<\n", s);
     // remove [macro FUN ARGS]BODY[/macro...] and doing fundef() on them
     char *m = s, *p;
+    if (verbose > 1) fprintf(stderr, "removefuns:%s\n", s);
     while (m = p = strstr(m, "[macro ")) {
         char* name = p + strlen("[macro ");
         char* spc = strchr(name, ' ');
@@ -1072,7 +1073,7 @@ int main(int argc, char* argv[]) {
         char* line = NULL;
         do {
             // TODO: make it part of non-blocking loop!
-            fprintf(stderr, "\n> ");
+          if (verbose > 0) fprintf(stderr, "\n> ");
             line = freadline(stdin);
             if (line) {
                 int len = strlen(line);
