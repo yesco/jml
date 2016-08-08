@@ -8,6 +8,24 @@ Simple online programmable virtual physical computer with built in persistent "m
 
 ## Woa!?
 
+So it's a html-generating programmable virtual computer with
+high-level lambda style "instructions". It does provide a minimal
+operating systems interface but that's not the goal. All the
+services/functions are "not" mapped or dependent of UNIX directly.
+
+### Services provided
+
+- Webserver response to call function
+- TODO: outgoing web request 
+- Persistent local store and program
+- TODO: websockets/mqtt
+
+Not sure what else is needed, unless you're accessing hardware specific
+things. These things defines a portable directly programmable
+computer.
+
+## First Principles
+
 This is a [First Principle's](https://en.wikipedia.org/wiki/First_principle) project.
 It means it starts from "scratch" with minimal requirements. Elon Musk uses this as
 his [innovation principle](http://99u.com/workbook/20482/how-elon-musk-thinks-the-first-principles-method).
@@ -61,6 +79,18 @@ Status: More "useless" than [Urbit](http://urbit.org/)!
 - callback verification [Magic cookie](https://en.wikipedia.org/wiki/Magic_cookie)
 - https://en.wikipedia.org/wiki/Merkle_tree
 - cheap hashes https://en.wikipedia.org/wiki/Tiger_(cryptography)
+
+## Extentions?
+
+It's not mean to be extended on the C-level. However, some way of
+accessing hardware/sensors is needed.  Possibly, the most portable way
+to approach this is to provide the service as a minimal
+webrequest/mqtt interface. This would allow the sensors to be directly
+accessible, if secure, on external interfaces too,
+transparently. Indistinguishable from other mqtt/webservices devices.
+The "strict" goal is to keep all the code/native functions, *exactly*
+the *same* on all devices. In princple, after a while, we should be
+able to freeze them, and only work on extension on the soft-layer.
 
 ## How to run
 
