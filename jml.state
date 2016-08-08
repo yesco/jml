@@ -1,4 +1,5 @@
 [macro datas $A][funcs data-$A][/macro]
+[macro match $regexp $data][match-do identity $regexp $data][/macro]
 [macro ignore][/macro]
 [macro identity @all]@all[/macro]
 [macro -- @comment][/macro]
@@ -60,7 +61,7 @@
 [macro /list][sys-header List Data][map f-li-nk [datas]][footer][/macro]
 
 [-- routing --]
-[macro route $id][map ][/macro]
+[macro route $id][datas data-route-($id)][/macro]
 
 [-- user updates -- ]
 [macro data-fish]CRAP[/macro 0 2016-08-04T08:48:09Z  ]

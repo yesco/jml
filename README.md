@@ -293,10 +293,12 @@ Lists
 Strings
 - [after X abcXzy] => zy
 - [before X abcXzy] = abc
+- [prefix abcdef abc abcd ab] => ab
 - [split a aAaBBaAa] => A BB A
 - [split-do inc a1a22a3a] => 2 23 4
 - [xml name ksajf; sadflk dsaflk <name c='foo'>FISH</name> sdfl sadf asdfdsa] => FISH
-- [match F a(b*)(cd*)e(.*)f abbbcexxxxxfff] => [F bbb c xxxxx]
+- [match-do F a(b*)(cd*)e(.*)f abbbcexxxxxfff] => [F bbb c xxxxx]
+- [match a(b*)(cd*)e(.*)f abbbcexxxxxfff] =>  bbb c xxxxx
 
 - [concat A B C D ...] => ABCD...
 - [concat A\ B C D ...] => A BCD...

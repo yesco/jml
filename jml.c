@@ -543,7 +543,18 @@ void funsubst(Out out, char* funname, char* args) {
         *f = 0;
         out(-1, 0, x);
         return;
-    } else if (!strcmp(funname, "match")) {
+    } else if (!strcmp(funname, "prefix")) {
+        char* a = next();
+        char* b = next();
+        while (*a && *b) {
+          char *xa = a, *xb = b, *p = a;
+          while (*xa && *xb && *xa++ == *xb++) p++;
+          *p = 0;
+          b = next();
+        }
+        out(-1, 0, a);
+        return;
+    } else if (!strcmp(funname, "match-do")) {
         // TODO: name it match-do?
         // TODO: - [match F a(b*)(cd*)e(.*)f acexxxxxfff] => [F c xxxxx] ... b position missing, quote mode?
         // TODO: => [F {} {c} {xxxxx}] ???
