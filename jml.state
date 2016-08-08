@@ -1,3 +1,4 @@
+[macro datas $A][funcs data-$A][/macro]
 [macro ignore][/macro]
 [macro identity @all]@all[/macro]
 [macro -- @comment][/macro]
@@ -20,7 +21,7 @@
 
 [-- system info --]
 [macro /about]JML Unikernel, (C) 2016 Jonas S Karlsson, [link [dup https://github.com/yesco/jml]]<hr>\n[/macro]
-[macro help]Math   : inc dec - / % > < >= <= = != + * (iota FROM TO STEP)\nString : empty equal cmp lower upper after before concat (split USING TEXT) (split-do FUN USING TEXT)\nRegexp: (match FUN REGEXP TEXT) # ^ab(c*).(x.*)y\$ \nX/HTML : (xml NAME TEXT) decode encrypt encrypt-eval decrypt decrypt-eval\nList   : length nth (map FUN ...) (filter PRED ...) (filter-do PRED FUN ...)\nSystem : time (data) (data ID TEXT) (data-ID) funcs fargs fbody\nFuncs  : [funcs]\n[/macro]
+[macro help]Math   : inc dec - / % > < >= <= = != + * (iota FROM TO STEP)\nString : empty equal cmp lower upper after before concat (split USING TEXT) (split-do FUN USING TEXT)\nRegexp: (match FUN REGEXP TEXT) # ^ab(c*).(x.*)y\$ \nX/HTML : (xml NAME TEXT) decode encrypt encrypt-eval decrypt decrypt-eval\nList   : length nth (map FUN ...) (filter PRED ...) (filter-do PRED FUN ...)\nSystem : time (datas PREFIX) (data ID TEXT) (data-ID) funcs fargs fbody\nFuncs  : [funcs]\n[/macro]
 [macro /favicon.ico][-- make it shut up!][/macro]
 
 [-- basic html --]
@@ -56,7 +57,7 @@
 [macro /wiki $id][sys-header Wiki - $id][wiki-markup [data-wiki-$id]][footer][/macro]
 [macro /edit $id][sys-header Edit Wiki - $id]<form>[hidden wiki $id][textarea edit [data-wiki-$id]]</form>[footer][/macro]
 [macro f-li-nk $fun @txt][li [link /$fun $fun @txt]][/macro]
-[macro /list][sys-header List Data][map f-li-nk [data]][footer][/macro]
+[macro /list][sys-header List Data][map f-li-nk [datas]][footer][/macro]
 
 [-- routing --]
 [macro route $id][map ][/macro]

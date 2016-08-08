@@ -689,21 +689,12 @@ void funsubst(Out out, char* funname, char* args) {
         }
         return;
     } else if (!strcmp(funname, "data")) {
-        // [data] => list of ID
+        // [datas AAA] = AAAabc AAAbbb AAAxx
+        // [datas AAA CCC] = AAAabc AAAbbb AAAxx Bxzy CCCf]
         // [data ID VAL] => VAL (stores)
         s = args;
         char* id = next();
-        if (!id || !strlen(id)) {
-            int i;
-            for(i = 0; i < functions_count; i++) {
-                char* name = functions[i].name;
-                if (name == strstr(name, "data-")) {
-                    out(-1, 0, name);
-                    out(1, ' ', NULL);
-                }
-            }
-            return;
-        }
+        if (!*id) return;
         char* data = s + strlen(id) + 1;
         char name[strlen(id)+1+5];
         name[0] = 0;
@@ -712,9 +703,17 @@ void funsubst(Out out, char* funname, char* args) {
         fundef(name, "", data);
         s = data;
     } else if (!strcmp(funname, "funcs")) {
-        int i;
+        char* prefix = next();
+        unsigned char* bigfix = next();
+        // add one with carry
+        int i = strlen(bigfix);
+        while (*bigfix && !++bigfix[--i]);
         for(i = 0; i < functions_count; i++) {
-            out(-1, 0, functions[i].name);
+            char* name = functions[i].name;
+            if (strcmp(name, prefix) < 0) continue;
+            if (*bigfix ? strcmp(name, bigfix) > 0
+                : strncmp(name, prefix, strlen(prefix))) continue;
+            out(-1, 0, name);
             out(1, ' ', NULL);
         }
         return;
