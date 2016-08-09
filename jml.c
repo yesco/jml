@@ -258,6 +258,7 @@ void removefuns(char* s) {
     //fprintf(stderr, "\nREMOVEFUNS:%s<<\n", s);
     // remove [macro FUN ARGS]BODY[/macro...] and doing fundef() on them
     char *m = s, *p;
+    if (verbose > 1) fprintf(stderr, "removefuns:%s\n", s);
     while (m = p = strstr(m, "[macro ")) {
         char* name = p + strlen("[macro ");
         char* spc = strchr(name, ' ');
@@ -543,7 +544,18 @@ void funsubst(Out out, char* funname, char* args) {
         *f = 0;
         out(-1, 0, x);
         return;
-    } else if (!strcmp(funname, "match")) {
+    } else if (!strcmp(funname, "prefix")) {
+        char* a = next();
+        char* b = next();
+        while (*a && *b) {
+          char *xa = a, *xb = b, *p = a;
+          while (*xa && *xb && *xa++ == *xb++) p++;
+          *p = 0;
+          b = next();
+        }
+        out(-1, 0, a);
+        return;
+    } else if (!strcmp(funname, "match-do")) {
         // TODO: name it match-do?
         // TODO: - [match F a(b*)(cd*)e(.*)f acexxxxxfff] => [F c xxxxx] ... b position missing, quote mode?
         // TODO: => [F {} {c} {xxxxx}] ???
@@ -689,21 +701,12 @@ void funsubst(Out out, char* funname, char* args) {
         }
         return;
     } else if (!strcmp(funname, "data")) {
-        // [data] => list of ID
+        // [datas AAA] = AAAabc AAAbbb AAAxx
+        // [datas AAA CCC] = AAAabc AAAbbb AAAxx Bxzy CCCf]
         // [data ID VAL] => VAL (stores)
         s = args;
         char* id = next();
-        if (!id || !strlen(id)) {
-            int i;
-            for(i = 0; i < functions_count; i++) {
-                char* name = functions[i].name;
-                if (name == strstr(name, "data-")) {
-                    out(-1, 0, name);
-                    out(1, ' ', NULL);
-                }
-            }
-            return;
-        }
+        if (!*id) return;
         char* data = s + strlen(id) + 1;
         char name[strlen(id)+1+5];
         name[0] = 0;
@@ -712,9 +715,17 @@ void funsubst(Out out, char* funname, char* args) {
         fundef(name, "", data);
         s = data;
     } else if (!strcmp(funname, "funcs")) {
-        int i;
+        char* prefix = next();
+        unsigned char* bigfix = next();
+        // add one with carry
+        int i = strlen(bigfix);
+        while (*bigfix && !++bigfix[--i]);
         for(i = 0; i < functions_count; i++) {
-            out(-1, 0, functions[i].name);
+            char* name = functions[i].name;
+            if (strcmp(name, prefix) < 0) continue;
+            if (*bigfix ? strcmp(name, bigfix) > 0
+                : strncmp(name, prefix, strlen(prefix))) continue;
+            out(-1, 0, name);
             out(1, ' ', NULL);
         }
         return;
@@ -1062,7 +1073,7 @@ int main(int argc, char* argv[]) {
         char* line = NULL;
         do {
             // TODO: make it part of non-blocking loop!
-            fprintf(stderr, "\n> ");
+          if (verbose > 0) fprintf(stderr, "\n> ");
             line = freadline(stdin);
             if (line) {
                 int len = strlen(line);
