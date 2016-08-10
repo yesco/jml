@@ -1073,7 +1073,7 @@ int main(int argc, char* argv[]) {
         char* line = NULL;
         do {
             // TODO: make it part of non-blocking loop!
-          if (verbose > 0) fprintf(stderr, "\n> ");
+            if (verbose >= 0) fprintf(stderr, "\n> ");
             line = freadline(stdin);
             if (line) {
                 int len = strlen(line);

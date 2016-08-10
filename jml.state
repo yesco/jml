@@ -1,4 +1,4 @@
-[macro datas $A][funcs data-$A][/macro]
+[macro list-data $A][funcs data-$A][/macro]
 [macro match $regexp $data][match-do identity $regexp $data][/macro]
 [macro ignore][/macro]
 [macro identity @all]@all[/macro]
@@ -76,10 +76,9 @@
 [macro /wiki $id][sys-header Wiki - $id][wiki-markup [data-wiki-$id]][footer][/macro]
 [macro /edit $id][sys-header Edit Wiki - $id]<form>[hidden wiki $id][textarea edit [data-wiki-$id]]</form>[footer][/macro]
 [macro f-li-nk $fun @txt][li [link /$fun $fun @txt]][/macro]
-[macro /list][sys-header List Data][map f-li-nk [datas]][footer][/macro]
+[macro /list][sys-header List Data][map f-li-nk [list-data]][footer][/macro]
 
 [-- routing --]
-[macro route-match $id $x][match data-route-$id [datas data-route-]][/macro]
 [macro route $id][funcs data-route- data-route-$id][/macro]
 
 [-- user updates -- ]
@@ -89,9 +88,18 @@
 [macro data-foo]bar[/macro 4 2016-08-05T14:33:53Z  ]
 [macro data-fish]gurka[/macro 5 2016-08-05T14:53:45Z  ]
 
-
-
 [macro data-route-03FBCD]http://www.foo.bar:4711[/macro 6 2016-08-08T14:46:00Z  ]
 [macro data-route-3053533535]http://www.fish.com:8080/[/macro 7 2016-08-08T14:46:20Z  ]
 [macro data-route-3053]http://small.one/[/macro 8 2016-08-08T14:46:37Z  ]
 [macro data-route][/macro 9 2016-08-08T14:49:09Z  ]
+
+[-- demo --]
+[macro /input]Your name: <form action='/name'><input name=’name’ type=isindex></form>[/macro]
+[macro /name @name]Hello @name![/macro]
+
+[macro have $f][not [empty [fbody $f]]][/macro]
+
+
+
+
+
