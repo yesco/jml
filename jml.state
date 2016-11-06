@@ -3,6 +3,7 @@
 [macro ignore][/macro]
 [macro identity @all]@all[/macro]
 [macro -- @comment][/macro]
+[macro have $f][not [empty [fbody $f]]][/macro]
 
 [-- math]
 [macro min $a $b][if [> $a $b] $b $a][/macro]
@@ -45,6 +46,7 @@
 [macro link $URL @txt]<a href="$URL">@txt</a>[/macro]
 
 [-- html forms --]
+[macro form $action @txt]<form action="$action">@txt</form>[/macro]
 [macro input $field @txt]<label><b>$field:</b> <input name='$field' value="@txt"/> </label>[/macro]
 [macro hidden $field @txt]<input type='hidden' name='$field' value="@txt"/>[/macro]
 [macro submit $field]<input type='submit' name='submit' value="$field"/>[/macro]
@@ -78,28 +80,20 @@
 [macro f-li-nk $fun @txt][li [link /$fun $fun @txt]][/macro]
 [macro /list][sys-header List Data][map f-li-nk [list-data]][footer][/macro]
 
-[-- routing --]
-[macro route $id][funcs data-route- data-route-$id][/macro]
-
-[-- user updates -- ]
-[macro data-fish]CRAP[/macro 1 2016-08-04T08:48:09Z  ]
-[macro quote @txt]{@txt}[/macro 2 2016-08-04T18:56:25Z TODO: remove? ]
-[macro data-wiki-hong-kong]\n=Hong Kong\nIs a temperated (as in always warm except when cold)\nsmall office\n[/macro]
-[macro data-foo]bar[/macro 4 2016-08-05T14:33:53Z  ]
-[macro data-fish]gurka[/macro 5 2016-08-05T14:53:45Z  ]
-
-[macro data-route-03FBCD]http://www.foo.bar:4711[/macro 6 2016-08-08T14:46:00Z  ]
-[macro data-route-3053533535]http://www.fish.com:8080/[/macro 7 2016-08-08T14:46:20Z  ]
-[macro data-route-3053]http://small.one/[/macro 8 2016-08-08T14:46:37Z  ]
-[macro data-route][/macro 9 2016-08-08T14:49:09Z  ]
-
 [-- demo --]
-[macro /input]Your name: <form action='/name'><input name=’name’ type=isindex></form>[/macro]
+[macro /input]Your name: [form /name <input name=’name’ type=isindex>][/macro]
 [macro /name @name]Hello @name![/macro]
 
-[macro have $f][not [empty [fbody $f]]][/macro]
+[-- routing --]
+[macro route $id][biggest [funcs data-route- data-route-$id]][/macro]
 
+[macro data-route-]http://www.fish.bar[/macro 1 2016-08-08T14:46:00Z  ]
+[macro data-route-03FBCD]http://www.foo.bar:4711[/macro 2 2016-08-08T14:46:00Z  ]
+[macro data-route-3053533535]http://www.fish.com:8080/[/macro 3 2016-08-08T14:46:20Z  ]
+[macro data-route-3053]http://small.one/[/macro 4 2016-08-08T14:46:37Z  ]
+[macro data-route-42]http://over.here/[/macro 5 2016-08-08T14:46:37Z  ]
 
+[-- <<< end of standard lib --]
 
-
-
+[-- user updates -- ]
+[macro quote @txt]{@txt}[/macro 6 2016-08-04T18:56:25Z TODO: remove? ]

@@ -310,7 +310,9 @@ WEB, decode URL
 Storage/persistent/database
 - [data firstname Peter] .. [data-firstname] => Peter
 - [data] =? firstname ...
-- [funcs] => user define func names
+- [funcs] => user defined func names
+- [funcs prefix] => user defined func names starting with prefix
+- [funcs start end] => user defined func names in [start, end[
 - [fargs macroname] -> $a $b @foo
 - [fbody macroname] -> foo $a fie $b fum: @foo
 

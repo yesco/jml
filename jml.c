@@ -282,10 +282,17 @@ void removefuns(char* s) {
         char* lp = strtok(end, " ]\n");
         if (lp) {
             int logpos = atoi(lp);
-            if (logpos > last_logpos)
+            if (logpos == last_logpos+1) {
                 last_logpos = logpos;
-            else
-                fprintf(stderr, "\n%%[/macro.error: logpos=%d < last_logpos=%d]", logpos, last_logpos);
+            } else if (logpos > last_logpos) {
+                last_logpos = logpos;
+                // TOOD: inject error message [warning log XXXX] ! (how?)
+                fprintf(stderr, "\n%%[/macro.warning: logpos=%d != last_logpos=%d+1] - log missing/incomplete",
+                    logpos, last_logpos);
+            } else {
+                // TOOD: inject error message [error log XXXX] ! (how?)
+                fprintf(stderr, "\n%%[/macro.error: logpos=%d <= last_logpos=%d]", logpos, last_logpos);
+            }
         }
         char* tm = strtok(NULL, " ]\n");
 
@@ -715,11 +722,14 @@ void funsubst(Out out, char* funname, char* args) {
         fundef(name, "", data);
         s = data;
     } else if (!strcmp(funname, "funcs")) {
-        char* prefix = next();
-        unsigned char* bigfix = next();
-        // add one with carry
-        int i = strlen(bigfix);
-        while (*bigfix && !++bigfix[--i]);
+        char* prefix = next(); // optional
+        unsigned char* bigfix = next(); // optional
+
+        // // add one with carry!
+        // int i = strlen(bigfix);
+        // while (*bigfix && i > 0 && !++bigfix[--i]);
+        int i;
+
         for(i = 0; i < functions_count; i++) {
             char* name = functions[i].name;
             if (strcmp(name, prefix) < 0) continue;
