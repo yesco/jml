@@ -86,7 +86,9 @@
 
 [-- routing --]
 [macro route $id][biggest [funcs data-route- data-route-$id]][/macro]
+[macro add-route $id @data][data data-route-$id @data][/macro]
 
+[-- -- these are actual routing data, TODO: how to manage?]
 [macro data-route-]http://www.fish.bar[/macro 1 2016-08-08T14:46:00Z  ]
 [macro data-route-03FBCD]http://www.foo.bar:4711[/macro 2 2016-08-08T14:46:00Z  ]
 [macro data-route-3053533535]http://www.fish.com:8080/[/macro 3 2016-08-08T14:46:20Z  ]
