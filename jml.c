@@ -601,6 +601,21 @@ void funsubst(Out out, char* funname, char* args) {
         // output rest
         outfun(fun, x);
         return;
+    } else if (!strcmp(funname, "substr")) {
+        int start = num();
+        int len = num();
+        char l = strlen(rest);
+        if (start > l) return;
+        if (start < 0) if (len < 0) len = -len;
+        if (start < 0) start = l + start;
+        if (start < 0) start = 0;
+        s = rest + start;
+        printf("\nsubstr... %d %d %d >%s<\n>>>", start, len, l, s);
+        if (len < 0) len = l + len;
+        if (len > l) len = l - start;
+        if (len < 0) len = 0;
+        *(s+len) = 0;
+        rest = NULL;
     } else if (!strcmp(funname, "decode")) {
         // TODO: add matching encode?
         char* x = s = args;
@@ -619,17 +634,24 @@ void funsubst(Out out, char* funname, char* args) {
         }
     } else if (!strncmp(funname, "encrypt", 7)) {
         char hex[] = "0123456789ABCDEF";
-        char* key = "1234123412341234";
+
+        // find key to use
+        // TODO: look it up from macro
+        char* key = strstr(funname, "/");
+        if (key)
+            key = key + 1;
+        else
+            key = "1234123412341234";
+
         long k[4];
         memset(k, 0, 16);
         int kl = strlen(key);
         memcpy(k, key, kl > 16 ? 16 : kl);
 
+        // trim space before and at end
         skipspace();
-        // trim space at end
         char* last = args + strlen(args) - 1;
         while (*last == ' ') *last-- = 0;
-        
         int l = strlen(args);
 
         // encrypt-eval function, has an interesting action:
@@ -664,7 +686,14 @@ void funsubst(Out out, char* funname, char* args) {
         out(1, '}', NULL);
         return;
     } else if (!strncmp(funname, "decrypt", 7)) {
-        char* key = "1234123412341234";
+        // find key to use
+        // TODO: look it up from macro
+        char* key = strstr(funname, "/");
+        if (key)
+            key = key + 1;
+        else
+            key = "1234123412341234";
+
         long k[4];
         memset(k, 0, 16);
         int kl = strlen(key);

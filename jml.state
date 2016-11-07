@@ -87,6 +87,9 @@
 [-- routing --]
 [macro route $id][biggest [funcs data-route- data-route-$id]][/macro]
 [macro add-route $id @data][data data-route-$id @data][/macro]
+[-- -- TODO: DON'T use the same key as for encrypting data!!!]
+[-- -- using last 16 hexchars of encrypted content as "hash" this is 64 bits only]
+[macro content-hash @content][substr -17 -16 [encrypt @content]][/macro]
 
 [-- -- these are actual routing data, TODO: how to manage?]
 [macro data-route-]http://www.fish.bar[/macro 1 2016-08-08T14:46:00Z  ]

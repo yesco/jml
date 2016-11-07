@@ -299,6 +299,11 @@ Strings
 - [xml name ksajf; sadflk dsaflk <name c='foo'>FISH</name> sdfl sadf asdfdsa] => FISH
 - [match-do F a(b*)(cd*)e(.*)f abbbcexxxxxfff] => [F bbb c xxxxx]
 - [match a(b*)(cd*)e(.*)f abbbcexxxxxfff] =>  bbb c xxxxx
+- [substr FIRST LEN abcXzy] get substrings out
+- [substr 0 3 abcXzy] => abc, this is essentially "left"
+- [substr 3 2 abcXzy] => Xz, this is essentially "mid"
+- [substr 4 1 abcXzy] => z
+- [substr -2 -2 abcXzy] => zy get the last N character, this is "right"
 
 - [concat A B C D ...] => ABCD...
 - [concat A\ B C D ...] => A BCD...
@@ -318,6 +323,34 @@ Storage/persistent/database
 
 Failure
 - [xyz sadfasdf] => (%FAIL: xyz sadfasdf)
+
+### Content Addressable Network
+
+We also add the capability of (CAN)[https://en.wikipedia.org/wiki/Content_addressable_network].
+
+For new we just implement Content Hashing by using the encrypt function with a fixed non-secret key.
+It may not qualify as cryptographically secure hashing function, but serves the purpose of a decent
+hash function, and we already have it...
+
+#### Node Joining
+A joining node must:
+- Find a node already in the overlay network
+- Identify a zone that can be split
+- Update the routing tables of nodes neighbouring the newly split node
+
+#### Node Departing
+To handle node departing:
+- Identify a node departing
+- have node's zone merged or taken over by a neighbouring node
+- update the routing tables across the network
+
+heartbeat to neighbours. 
+
+TODO: Consider (implementing) mDNS
+
+TODO: Consider if we should be using https://en.wikipedia.org/wiki/Kademlia
+
+Read: http://stackoverflow.com/questions/3076222/top-hashing-and-encryption-algorithms
 
 ### Note on quoting
 
@@ -347,23 +380,35 @@ Seriously, the web is multilingular, and I travel in china, use swedish so UTF-8
 "And ASCII bytes do not occur when encoding non-ASCII code points into UTF-8, making UTF-8 safe to use within most programming and document languages that interpret certain ASCII characters in a special way, e.g. as end of string."
 
 ### Security/Encryption/(TEA)[https://en.wikipedia.org/wiki/Tiny_Encryption_Algorithm]
+
 - [encrypt FOOBAR] => {39CE0CD92EEBACC8}
 - [decrypt {39CE0CD92EEBACC8}] => FOOBAR
-- [encrypt-eval (+ 3 4)] => {D9403DC570A74AF1}
-- [decrypt {D9403DC570A74AF1}] => (+ 3 4)
-- [decrypt-eval {D9403DC570A74AF1}] => (+ 3 4) => 7
+- [encrypt-eval {+ 3 4}] => {D9403DC570A74AF1}
+- [decrypt {D9403DC570A74AF1}] => {+ 3 4}
+- [decrypt-eval {D9403DC570A74AF1}] => [+ 3 4] => 7
 
-Note on "security", it's just XXTEA which can only provide nominal
+#### using custom keys
+
+The default key is "1234123412341234", maximum lenght is 16, ascii, no
+"/" or " " character allowed.  The key is part of the "function" name
+(funny hack) thus the name to use is [encrypt/MYSECURITYKEY data to
+encrypt], similarly for decrypt/MYSECURITYKEY,
+encrypt-eval/decrypt-eval...
+
+*Note* on "security", it's just XXTEA which can only provide nominal
 security in access. They keys aren't protected and if one has access
-to the physical device would be able to extract the key. However,
-each instance should have it's own key and the person communicating with it need it too.
-This means; It's protected against middle-man attack. Each unikernel/device should have
-it's own key. It may be possible to use the key to only allow the owner of
-that key to modify and run any code. Others would only be allowed to interact
-using the public defined macro functions, like [macro /foo]...
+to the physical device would be able to extract the key. However, each
+instance should have it's own key and the person communicating with it
+need it too.  This means; It's protected against middle-man
+attack. Each unikernel/device should have it's own key. It may be
+possible to use the key to only allow the owner of that key to modify
+and run any code. Others would only be allowed to interact using the
+public defined macro functions, like [macro /foo]...
 
-Encrypted data becomes HEX coded, thus will at use at least the double
-amount of bytes.
+Encrypted data becomes HEX coded, to keep it ascii, thus it will at
+use at least the double amount of bytes.
+
+TODO: enable setting/changing keys
 
 #### Termination
 
