@@ -753,12 +753,7 @@ void funsubst(Out out, char* funname, char* args) {
     } else if (!strcmp(funname, "funcs")) {
         char* prefix = next(); // optional
         unsigned char* bigfix = next(); // optional
-
-        // // add one with carry!
-        // int i = strlen(bigfix);
-        // while (*bigfix && i > 0 && !++bigfix[--i]);
         int i;
-
         for(i = 0; i < functions_count; i++) {
             char* name = functions[i].name;
             if (strcmp(name, prefix) < 0) continue;

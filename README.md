@@ -74,8 +74,6 @@ Status: More "useless" than [Urbit](http://urbit.org/)!
 - what's the minimal set of functions needed?
 - connectivity, receive requests/send requests (messaging)
 - logical + physical addressing something like [Kademlia](https://en.wikipedia.org/wiki/Kademlia)
-- p2p filesystem w some redundancy - [PAST](https://en.wikipedia.org/wiki/Pastry_(DHT))
-- p2p pubsub - [SCRIBE](https://en.wikipedia.org/wiki/Pastry_(DHT))
 - callback verification [Magic cookie](https://en.wikipedia.org/wiki/Magic_cookie)
 - https://en.wikipedia.org/wiki/Merkle_tree
 - cheap hashes https://en.wikipedia.org/wiki/Tiger_(cryptography)
@@ -344,13 +342,19 @@ To handle node departing:
 - have node's zone merged or taken over by a neighbouring node
 - update the routing tables across the network
 
-heartbeat to neighbours. 
+heartbeat to neighbours
 
-TODO: Consider (implementing) mDNS
+- TODO: Consider (implementing) mDNS
+- TODO: Consider if we should be using https://en.wikipedia.org/wiki/Kademlia
+- p2p filesystem w some redundancy - [PAST](https://en.wikipedia.org/wiki/Pastry_(DHT))
+- p2p pubsub - [SCRIBE](https://en.wikipedia.org/wiki/Pastry_(DHT))
+- http://stackoverflow.com/questions/3076222/top-hashing-and-encryption-algorithms
 
-TODO: Consider if we should be using https://en.wikipedia.org/wiki/Kademlia
+#### We need a distributed filesystem
 
-Read: http://stackoverflow.com/questions/3076222/top-hashing-and-encryption-algorithms
+Two variants
+- CA, Content Addressable, hash the content, store on the node as owner, and "k nearest".
+- by URL name, like PAST: hash by URL to find (date,size,CA-hashes)
 
 ### Note on quoting
 
