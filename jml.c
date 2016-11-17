@@ -746,6 +746,21 @@ void funsubst(Out out, char* funname, char* args) {
         strcat(name, id);
         fundef(name, "", data);
         s = data;
+    } else if (!strcmp(funname, "wget")) { // TODO: "remove", replace by guaranteed message...
+        // TODO: bad that it's synchronious
+        int result(void* data, char* s) {
+            if (!s) return 1;
+            // quote [] so no (unsafe) evaluation...
+            char *p = s, c;
+            while(c = *p++) {
+                if (c == '[') out(1, '{', NULL);
+                else if (c == ']') out(1, '}', NULL);
+                else out(1, c, NULL);
+            }
+            return 1; // get more...
+        }
+        wget(NULL, next(), result);
+        return;
     } else if (!strcmp(funname, "message")) {
         // TODO: this will add an entry to storage and then try to send
         //

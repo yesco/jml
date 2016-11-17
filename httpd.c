@@ -167,21 +167,23 @@ void httpd_loop(int s) {
 int wget(void* data, char* url, int out(void* data, char* s)) {
     int successes = 0, failures = 0;
         
-    char* se = strstr(url, "http:");
-    if (!se) return 5; else se += 5;
-    char* p = strstr(url, ":");
+    char* se = strstr(url, "http://");
+    if (!se) return 5; else se += 7;
+    char* p = strstr(se, ":");
     int port = p ? atoi(p + 1) : 80;
-    char* sl = strstr(url, "/");
-    if (!sl) return 6;
-    int l = p ? p - url + 1 : sl - url + 1;
+    char* sl = strstr(se, "/");
+    if (!sl) sl = url + strlen(url); else sl--;
+    int l = p ? p - url + 1 : sl - se + 1;
     char server[l + 1];
     memset(server, 0, sizeof(server));
     memcpy(server, se, l);
 
-    printf("HTTP get task starting...\r\n");
-    printf("  url=%s\n", url);
-    printf("  server=%s\n", server);
-    printf("  port=%d\n", port);
+    if (0) {
+        fprintf(stderr, "\n%%HTTP get task starting...\r\n");
+        fprintf(stderr, "  url=%s\n", url);
+        fprintf(stderr, "  server=%s\n", server);
+        fprintf(stderr, "  port=%d\n", port);
+    }
 
     const struct addrinfo hints = {
         .ai_family = AF_INET,
