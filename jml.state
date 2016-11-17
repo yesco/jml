@@ -85,11 +85,13 @@
 [macro /name @name]Hello @name![/macro]
 
 [-- routing --]
-[macro route $id][biggest [funcs data-route- data-route-$id]][/macro]
 [macro add-route $id @data][data data-route-$id @data][/macro]
-[-- -- TODO: DON'T use the same key as for encrypting data!!!]
+
+[macro route-id $id][biggest [funcs data-route- data-route-$id]][/macro]
+[macro route-data $id][[route-id $id]][/macro]
+
 [-- -- using last 16 hexchars of encrypted content as "hash" this is 64 bits only]
-[macro content-hash @content][substr -17 -16 [encrypt @content]][/macro]
+[macro content-hash @content][substr -17 -16 [encrypt/ContentAddress @content]][/macro]
 
 [-- -- these are actual routing data, TODO: how to manage?]
 [macro data-route-]http://www.fish.bar[/macro 1 2016-08-08T14:46:00Z  ]
@@ -97,8 +99,11 @@
 [macro data-route-3053533535]http://www.fish.com:8080/[/macro 3 2016-08-08T14:46:20Z  ]
 [macro data-route-3053]http://small.one/[/macro 4 2016-08-08T14:46:37Z  ]
 [macro data-route-42]http://over.here/[/macro 5 2016-08-08T14:46:37Z  ]
+[macro data-route-89999]http://aba.com/[/macro 6 2016-08-08T14:46:37Z  ]
+[macro data-route-C03FAB]http://cark.com/[/macro 7 2016-08-08T14:46:37Z  ]
+[macro data-route-E738753]http://eff.com/[/macro 8 2016-08-08T14:46:37Z  ]
 
 [-- <<< end of standard lib --]
 
 [-- user updates -- ]
-[macro quote @txt]{@txt}[/macro 6 2016-08-04T18:56:25Z TODO: remove? ]
+[macro quote @txt]{@txt}[/macro]

@@ -13,6 +13,8 @@
 #include <errno.h>
 #include <string.h>
 
+#include <netdb.h>
+
 #include "httpd.h"
 
 #define BUFSIZE 1024
@@ -156,6 +158,106 @@ void httpd_loop(int s) {
     while (1) {
         httpd_next(s, header, body, response);
     }
+}
+
+#define MAX_BUFF 128
+
+// TODO: make it return RESPONE CODE
+// TODO: fix port...
+int wget(void* data, char* url, int out(void* data, char* s)) {
+    int successes = 0, failures = 0;
+        
+    char* se = strstr(url, "http:");
+    if (!se) return 5; else se += 5;
+    char* p = strstr(url, ":");
+    int port = p ? atoi(p + 1) : 80;
+    char* sl = strstr(url, "/");
+    if (!sl) return 6;
+    int l = p ? p - url + 1 : sl - url + 1;
+    char server[l + 1];
+    memset(server, 0, sizeof(server));
+    memcpy(server, se, l);
+
+    printf("HTTP get task starting...\r\n");
+    printf("  url=%s\n", url);
+    printf("  server=%s\n", server);
+    printf("  port=%d\n", port);
+
+    const struct addrinfo hints = {
+        .ai_family = AF_INET,
+        .ai_socktype = SOCK_STREAM,
+    };
+    struct addrinfo *res;
+
+    //printf("Running DNS lookup for %s...\r\n", url);
+    // TODO: fix port...
+    int err = getaddrinfo(server, "80", &hints, &res);
+
+    if (err != 0 || res == NULL) {
+        printf("DNS lookup failed err=%d res=%p server=%s\r\n", err, res, server);
+        if (res)
+            freeaddrinfo(res);
+        failures++;
+        return 1;
+    }
+
+    /* Note: inet_ntoa is non-reentrant, look at ipaddr_ntoa_r for "real" code */
+    //struct in_addr *addr = &((struct sockaddr_in *)res->ai_addr)->sin_addr;
+    //printf("DNS lookup succeeded. IP=%s\r\n", inet_ntoa(*addr));
+
+    int s = socket(res->ai_family, res->ai_socktype, 0);
+    if (s < 0) {
+        printf("... Failed to allocate socket.\r\n");
+        freeaddrinfo(res);
+        failures++;
+        return 2;
+    }
+
+    if (connect(s, res->ai_addr, res->ai_addrlen) != 0) {
+        close(s);
+        freeaddrinfo(res);
+        printf("... socket connect failed.\r\n");
+        failures++;
+        return 3;
+    }
+
+    //printf("... connected\r\n");
+    freeaddrinfo(res);
+
+    // TODO: not efficient?
+    #define WRITE(msg) (write((s), (msg), strlen(msg)) < 0)
+    if (WRITE("GET ") ||
+        WRITE(url) ||
+        WRITE("\r\n") ||
+        WRITE("User-Agent: esp-open-rtos/0.1 esp8266\r\n\r\n"))
+    #undef WRITE
+    {
+        printf("... socket send failed\r\n");
+        close(s);
+        failures++;
+        return 4;
+    }
+    //printf("... socket send success\r\n");
+
+    int r = 0;
+    do {
+        char buff[MAX_BUFF] = {0};
+        r = read(s, buff, sizeof(buff)-1);
+        if (r > 0 && !out(data, buff)) break;
+    } while (r > 0);
+
+    // mark end
+    out(data, NULL);
+
+    //printf("... done reading from socket. Last read return=%d errno=%d\r\n", r, errno);
+    if (r != 0)
+        failures++;
+    else
+        successes++;
+
+    close(s);
+
+    return 0;
 }
 
 #ifdef HTTPD_MAIN

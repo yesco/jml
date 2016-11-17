@@ -258,7 +258,7 @@ void removefuns(char* s) {
     //fprintf(stderr, "\nREMOVEFUNS:%s<<\n", s);
     // remove [macro FUN ARGS]BODY[/macro...] and doing fundef() on them
     char *m = s, *p;
-    if (verbose > 1) fprintf(stderr, "removefuns:%s\n", s);
+    if (verbose > 1) fprintf(stderr, "{{removefuns:%s}}", s);
     while (m = p = strstr(m, "[macro ")) {
         char* name = p + strlen("[macro ");
         char* spc = strchr(name, ' ');
@@ -610,7 +610,6 @@ void funsubst(Out out, char* funname, char* args) {
         if (start < 0) start = l + start;
         if (start < 0) start = 0;
         s = rest + start;
-        printf("\nsubstr... %d %d %d >%s<\n>>>", start, len, l, s);
         if (len < 0) len = l + len;
         if (len > l) len = l - start;
         if (len < 0) len = 0;
@@ -737,18 +736,35 @@ void funsubst(Out out, char* funname, char* args) {
         }
         return;
     } else if (!strcmp(funname, "data")) {
-        // [datas AAA] = AAAabc AAAbbb AAAxx
-        // [datas AAA CCC] = AAAabc AAAbbb AAAxx Bxzy CCCf]
-        // [data ID VAL] => VAL (stores)
         s = args;
         char* id = next();
         if (!*id) return;
-        char* data = s + strlen(id) + 1;
+        char* data = rest;
         char name[strlen(id)+1+5];
         name[0] = 0;
         strcat(name, "data-");
         strcat(name, id);
         fundef(name, "", data);
+        s = data;
+    } else if (!strcmp(funname, "message")) {
+        // TODO: this will add an entry to storage and then try to send
+        //
+        //    https://en.wikipedia.org/wiki/AllJoyn
+        //    https://en.wikipedia.org/wiki/Internet_Storage_Name_Service
+        //    https://en.wikipedia.org/wiki/Service_Location_Protocol
+        //    https://en.wikipedia.org/wiki/XMPP
+        char* dest = next();
+        char* expiry = num();
+        s = args;
+        char* id = next();
+        if (!*id) return;
+        char* data = rest;
+        char name[strlen(id)+1+8];
+        name[0] = 0;
+        strcat(name, "message-");
+        strcat(name, id);
+        fundef(name, "", data);
+        // TOOD: send message, lol
         s = data;
     } else if (!strcmp(funname, "funcs")) {
         char* prefix = next(); // optional
@@ -1033,24 +1049,48 @@ static void jmlresponse(int req, char* method, char* path) {
     // Note: line is freed by oneline, output putt
 }
 
+int putstdout(int c) {
+    static int escape = 0;
+    if (escape && c == 'n') c = '\n';
+    if (escape && c == 't') c = '\t';
+    if (escape = (c == '\\')) return 0;
+    return fputc(c, stdout);
+}
+
+int loadfile(FILE* f) {
+    last_logpos = -1; // this is "defined" per file
+    verbose--; // make it somewhat more silent during startup
+    while (f && !feof(f)) {
+        char* line = freadline(f);
+        if (!line) break;
+        int len = strlen(line);
+        if (len) {
+            // remove end newline
+            if (line[len-1] == '\n') line[len-1] = 0;
+            if (*line) oneline(line, putstdout);
+        }
+    }
+    if (out) { free(out); end = to = out = NULL; }
+    verbose++;
+    return 0;
+}
+
 int main(int argc, char* argv[]) {
     jmlputchar = putchar;
-
-    int putstdout(int c) {
-        static int escape = 0;
-        if (escape && c == 'n') c = '\n';
-        if (escape && c == 't') c = '\t';
-        if (escape = (c == '\\')) return 0;
-        return fputc(c, stdout);
-    }
 
     // parse arguments
     int argi = 1;
     int web = 0;
     char* state = "jml.state";
 
+    FILE* f = fopen(state, "a+"); // position for read beginning, write always only appends
+    if (f) loadfile(f);
+
     while (argc > argi) {
-        if (!strcmp(argv[argi], "-v")) {
+        if (!strcmp(argv[argi], "-h")) {
+            printf("./run [-q(uiet)] [-t(race)] [-w(eb) [PORT]] [-v(erbose)] [-h(elp)] [file.state [...]]\n");
+            exit(1);
+        } else if (!strcmp(argv[argi], "-v")) {
             argi++;
             verbose++;
         } else if (!strcmp(argv[argi], "-q")) { // quiet
@@ -1067,31 +1107,21 @@ int main(int argc, char* argv[]) {
             else
                 web = 1111;
         } else if (argv[argi][0] != '-') {
-            argi++;
+            // Read previous state(s)
             state = argv[argi];
+            argi++;
+            if (f) fclose(f);
+            if (verbose > 0) fprintf(stderr, "\n%% loading file: %s\n", state);
+            f = fopen(state, "a+"); // position for read beginning, write always only appends
+            int r = loadfile(f);
+            if (r) fprintf(stderr, "\n%%%% Error loading file: %s (run with -v -v -v ... to get more verbose)\n", state);
         }
     }
+    
+    // keep last file open
+    jml_state = f;
 
     //fprintf(stderr, "trace=%d web=%d state=%s\n", trace, web, state);
-
-    // Read previous state
-    verbose--; // make it somewhat more silent during startup
-    FILE* f  = fopen(state, "a+"); // position for read beginning, write always only appends
-    while (f && !feof(f)) {
-        char* line = freadline(f);
-        if (!line) break;
-        int len = strlen(line);
-        if (len) {
-            // remove end newline
-            if (line[len-1] == '\n') line[len-1] = 0;
-            if (*line) oneline(line, putstdout);
-        }
-    }
-    if (out) { free(out); end = to = out = NULL; }
-    verbose++;
-
-    // Keep file open to append new defs
-    jml_state = f;
     
     // Start the web server
     if (web) {
