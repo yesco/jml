@@ -172,13 +172,14 @@ int wget(void* data, char* url, int out(void* data, char* s)) {
     char* p = strstr(se, ":");
     int port = p ? atoi(p + 1) : 80;
     char* sl = strstr(se, "/");
+    char* path = sl;
     if (!sl) sl = url + strlen(url); else sl--;
-    int l = p ? p - url + 1 : sl - se + 1;
+    int l = p ? p - se : sl - se + 1;
     char server[l + 1];
     memset(server, 0, sizeof(server));
     memcpy(server, se, l);
 
-    if (0) {
+    if (1) {
         fprintf(stderr, "\n%%HTTP get task starting...\r\n");
         fprintf(stderr, "  url=%s\n", url);
         fprintf(stderr, "  server=%s\n", server);
@@ -193,10 +194,12 @@ int wget(void* data, char* url, int out(void* data, char* s)) {
 
     //printf("Running DNS lookup for %s...\r\n", url);
     // TODO: fix port...
-    int err = getaddrinfo(server, "80", &hints, &res);
+    char portstr[10] = {0};
+    snprintf(portstr, sizeof(portstr), "%d", port);
+    int err = getaddrinfo(server, portstr, &hints, &res);
 
     if (err != 0 || res == NULL) {
-        printf("DNS lookup failed err=%d res=%p server=%s\r\n", err, res, server);
+        fprintf(stderr, "DNS lookup failed err=%d res=%p server=%s\r\n", err, res, server);
         if (res)
             freeaddrinfo(res);
         failures++;
@@ -209,7 +212,7 @@ int wget(void* data, char* url, int out(void* data, char* s)) {
 
     int s = socket(res->ai_family, res->ai_socktype, 0);
     if (s < 0) {
-        printf("... Failed to allocate socket.\r\n");
+        fprintf(stderr, "... Failed to allocate socket.\r\n");
         freeaddrinfo(res);
         failures++;
         return 2;
@@ -218,7 +221,7 @@ int wget(void* data, char* url, int out(void* data, char* s)) {
     if (connect(s, res->ai_addr, res->ai_addrlen) != 0) {
         close(s);
         freeaddrinfo(res);
-        printf("... socket connect failed.\r\n");
+        fprintf(stderr, "... socket connect failed.\r\n");
         failures++;
         return 3;
     }
@@ -229,12 +232,12 @@ int wget(void* data, char* url, int out(void* data, char* s)) {
     // TODO: not efficient?
     #define WRITE(msg) (write((s), (msg), strlen(msg)) < 0)
     if (WRITE("GET ") ||
-        WRITE(url) ||
+        WRITE(path ? path : "/") ||
         WRITE("\r\n") ||
         WRITE("User-Agent: esp-open-rtos/0.1 esp8266\r\n\r\n"))
     #undef WRITE
     {
-        printf("... socket send failed\r\n");
+        fprintf(stderr, "... socket send failed\r\n");
         close(s);
         failures++;
         return 4;
