@@ -1,0 +1,37 @@
+if [ $# -lt 2 ]
+  then
+    echo "Usage: ./mkserver NAME Server/FRIEND"
+    echo
+  exit 1
+fi
+
+NAME="$1"
+UUID="`uuid`"
+ID="`echo "[content-hash $UUID]" | ./run -q`"
+PORT=`random -e 500 ;  echo "8000+$?" | bc`
+URL="http://localhost:$PORT/"
+TIME="`date -Ins`"
+
+echo "NAME=$NAME"
+echo "NAME=$TIME"
+echo "UUID=$UUID"
+echo "ID=$ID"
+echo "PORT=$PORT"
+echo "URL=$URL"
+
+# - add yourself to your FRIEND
+touch $2
+echo "[macro data-route-$ID]$URL $NAME $TIME ...[/macro]" >> $2
+
+# - add to the new server
+touch Servers/$1.state
+echo "[-- $TIME @ `hostname`: Server $NAME created --]" >> Servers/$1.state
+echo "[macro /jml-id]$ID[/macro]" >> Servers/$1.state
+echo "[macro /jml-name]$NAME[/macro]" >> Servers/$1.state
+echo "[macro /jml-url]$URL[/macro]" >> Servers/$1.state
+
+# - inherit routes from FRIEND, including our own
+grep data-route- $2  >> Servers/$1.state
+
+echo
+cat Servers/$1.state

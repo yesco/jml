@@ -85,17 +85,19 @@
 [macro /name @name]Hello @name![/macro]
 
 [-- routing --]
-[macro add-route $id @data][data data-route-$id @data][/macro]
+[macro route-add $id @data][data data-route-$id @data][/macro]
 
-[macro route-id $id][biggest [funcs data-route- data-route-$id]][/macro]
-[macro route-data $id][[route-id $id]][/macro]
+[macro route-id $hash][first [biggest [funcs data-route- data-route-$hash]] [biggest [funcs data-route-]]][/macro]
+[macro route-data $hash][[route-id $hash]][/macro]
+[macro route-url $hash][first [route-data $hash]][/macro]
+
+[macro /route-add $id $url @data][route-add $id $url @data][/macro]
+
+[macro route-data-pp $id]{$id [$id]}[/macro]
+[macro /route-list][map route-data-pp [list-data route-]][/macro]
 
 [-- -- using last 16 hexchars of encrypted content as "hash" this is 64 bits only]
 [macro content-hash @content][substr -17 -16 [encrypt/ContentAddress @content]][/macro]
-
-[-- -- these are actual routing data, TODO: how to manage?]
-[macro data-route-]http://localhost:8081/[/macro]
-[macro data-route-8]http://localhost:8082/[/macro]
 
 [-- <<< end of standard lib --]
 

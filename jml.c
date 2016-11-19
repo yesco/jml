@@ -133,7 +133,10 @@ typedef struct FunDef {
 FunDef functions[SIZE] = {0};
 int functions_count = 0;
 int last_logpos = -1;
+
 FILE* jml_state = NULL;
+char* jml_state_name = NULL;
+char* jml_state_url = NULL;
 
 void fprintFun(FILE* f, int i) {
     time_t now;
@@ -241,7 +244,7 @@ Match match(char *regexp, char *text, char* fun, Out out) {
        char* s = m[i].start && m[i].end ? strndup(m[i].start, m[i].end - m[i].start) : NULL;
        if (!s) break;
        out(-1, 0, s);
-       fprintf(stderr, "   => '%s'./%s/ ... %d >%s<\n", text, regexp, i, s);
+       // fprintf(stderr, "   => '%s'./%s/ ... %d >%s<\n", text, regexp, i, s);
     }
     out(1, ']', NULL);
     return m[0];
@@ -401,6 +404,7 @@ void macro_subst(Out out, FunDef* f, char* args) {
                 out(-1, 0, arga[i]);
                 body += fargalen[i];
             } else {
+                // TOOD: this seems to loop forever at problem...
                 fprintf(stderr, "\n%%Argument: %s not found!\n", strtok(body, " "));
             }
         } else {
@@ -1097,9 +1101,9 @@ int main(int argc, char* argv[]) {
     // parse arguments
     int argi = 1;
     int web = 0;
-    char* state = "jml.state";
+    jml_state_name = "jml.state";
 
-    FILE* f = fopen(state, "a+"); // position for read beginning, write always only appends
+    FILE* f = fopen(jml_state_name, "a+"); // position for read beginning, write always only appends
     if (f) loadfile(f);
 
     while (argc > argi) {
@@ -1122,15 +1126,19 @@ int main(int argc, char* argv[]) {
                 argi++;
             else
                 web = 1111;
+        } else if (!strcmp(argv[argi], "-s")) {
+            argi++;
+            web = -1;
         } else if (argv[argi][0] != '-') {
             // Read previous state(s)
-            state = argv[argi];
+            jml_state_name = argv[argi];
             argi++;
             if (f) fclose(f);
-            if (verbose > 0) fprintf(stderr, "\n%% loading file: %s\n", state);
-            f = fopen(state, "a+"); // position for read beginning, write always only appends
+            if (verbose > 0) fprintf(stderr, "\n%% loading file: %s\n", jml_state_name);
+            f = fopen(jml_state_name, "a+"); // position for read beginning, write always only appends
             int r = loadfile(f);
-            if (r) fprintf(stderr, "\n%%%% Error loading file: %s (run with -v -v -v ... to get more verbose)\n", state);
+            if (r) fprintf(stderr,
+                "\n%%%% Error loading file: %s (run with -v -v -v ... to get more verbose)\n", jml_state_name);
         }
     }
     
@@ -1142,8 +1150,9 @@ int main(int argc, char* argv[]) {
     // Start the web server
     if (web) {
         int www = httpd_init(web);
-        if (www < 0 ) { printf("ERROR.errno=%d\n", errno); return -1; }
-        if (verbose >= 0) fprintf(stderr, "\n{{--Webserver started on port=%d--}\n", web);
+        if (www < 0 ) { fprintf(stderr, "ERROR.errno=%d\n", errno); return -1; }
+        if (verbose >= 0)
+            fprintf(stderr, "\n{{--%s: Webserver started on port=%d--}}\n", jml_state_name, web);
         doexit = 0;
         // simple single threaded semantics/monitor/object/actor
         while (!doexit) {
