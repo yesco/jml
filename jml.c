@@ -762,6 +762,7 @@ void funsubst(Out out, char* funname, char* args) {
         wget(NULL, next(), result);
         return;
     } else if (!strcmp(funname, "message")) {
+        // echo "[wget [route-data [content-hash Hello! How are you?]]/id]" | ./run -q -t
         // TODO: this will add an entry to storage and then try to send
         //
         //    https://en.wikipedia.org/wiki/AllJoyn
@@ -769,7 +770,7 @@ void funsubst(Out out, char* funname, char* args) {
         //    https://en.wikipedia.org/wiki/Service_Location_Protocol
         //    https://en.wikipedia.org/wiki/XMPP
         char* dest = next();
-        char* expiry = num();
+        // char* expiry = num();
         s = args;
         char* id = next();
         if (!*id) return;

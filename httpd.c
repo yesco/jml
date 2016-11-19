@@ -1,4 +1,6 @@
 // simplified from: http://blog.manula.org/2011/05/writing-simple-web-server-in-c.html
+// TODO: backpatch this to the esp-lisp project
+
 //#ifdef UNIX
   #include <netinet/in.h> // missing on esp-open-rtos
   #include <fcntl.h> // duplicate def on esp-open-rtos
@@ -173,13 +175,14 @@ int wget(void* data, char* url, int out(void* data, char* s)) {
     int port = p ? atoi(p + 1) : 80;
     char* sl = strstr(se, "/");
     char* path = sl;
+    while (path[0] == '/' && path[1] == '/') path++;
     if (!sl) sl = url + strlen(url); else sl--;
     int l = p ? p - se : sl - se + 1;
     char server[l + 1];
     memset(server, 0, sizeof(server));
     memcpy(server, se, l);
 
-    if (1) {
+    if (0) {
         fprintf(stderr, "\n%%HTTP get task starting...\r\n");
         fprintf(stderr, "  url=%s\n", url);
         fprintf(stderr, "  server=%s\n", server);
@@ -244,11 +247,23 @@ int wget(void* data, char* url, int out(void* data, char* s)) {
     }
     //printf("... socket send success\r\n");
 
+    // TODO: should check return code
+    // TODO: what to do with error code?
+    // TODO: what to do if fail connect or error?
+    int header = 2;
     int r = 0;
     do {
         char buff[MAX_BUFF] = {0};
         r = read(s, buff, sizeof(buff)-1);
-        if (r > 0 && !out(data, buff)) break;
+        // skip header
+        char *p = buff, c;
+        while(*p && header && (c = *p)) {
+            if (c != '\r' && c != '\n') header = 2;
+            if (c == '\n') header--;
+            p++;
+        }
+
+        if (r > 0 && *p && !out(data, p)) break;
     } while (r > 0);
 
     // mark end

@@ -350,7 +350,96 @@ heartbeat to neighbours
 - p2p pubsub - [SCRIBE](https://en.wikipedia.org/wiki/Pastry_(DHT))
 - http://stackoverflow.com/questions/3076222/top-hashing-and-encryption-algorithms
 
+#### hotspots
+
+TODO: maybe we're doing (implementing) this???
+
+When searching for NAMED data, we should search for:
+
+    [ NAME-HASH    '/' YOUR-ID-HASH '/' ]
+    [ CHUNK-HASH   '/' YOUR-ID-HASH '/' ]
+
+For example when a file name is hashed for filesystem implementations there may be many
+hosters/locations storing the same file and registering the same file, in order not to
+overload a single "bucket" we need to be able to split on a "longer" key so, key for
+insertions is:
+
+    [ NAME-HASH    '/' HOSTER-ID-HASH '/' LIST-HASH ':name' ]  => NAME
+    [ LIST-HASH    '/' HOSTER-ID-HASH ':file']                 => LIST of (offset, CHUNK)
+    [ CHUNK-HASH   '/' HOSTER-ID-HASH ':chunk']                => CONTENT
+
+This way the normal splitting would be able to handle hotspots by just splitting the range.
+When searching you identify yourself and will be routed to the bucket for the same CONTENT-HASH
+that is closest to your ID.
+
+Example:
+
+file content hash
+    > echo "[content-hash <data...tatatatatat>]" | ./run -q
+    0A543F0365179C05
+
+    > echo "[content-hash <data...other>]" | ./run -q
+    C0458858B721576B
+
+file name component "StarWarsIV" probably also will have "star" "wars" "iv"...
+    > echo "[content-hash StarWarsIV]" | ./run -q -t
+    A2065D7267A72D3D
+
+    star => 015BA7A2250FA4D1
+    wars => 6181303D2E3EEB6C
+    iv   => 63AB646145DFFEA9
+
+another file is "star trek"
+
+    star => 015BA7A2250FA4D1
+    trek => EC8DA41B66A78863
+
+this is your node ID:
+
+    > uuid
+    5aaf5bb2-aca3-11e6-b0d5-cb6044163794
+    > echo "[content-hash 5aaf5bb2-aca3-11e6-b0d5-cb6044163794]" | ./run -q -t
+    DA623E175D65C3C0
+
+we have 2 more nodes storing this file
+    
+    64CDE172E66BA52D
+    FD017067ECF5E177
+
+the second file is stored by you and another person:
+
+    4B3722E05881C728
+
+3 nodes have the file thus we will store 3 pointers in the extended key
+here is the full table
+
+    015BA7A2250FA4D1/4B3722E05881C728/C0458858B721576B => star
+    015BA7A2250FA4D1/64CDE172E66BA52D/0A543F0365179C05 => star
+    015BA7A2250FA4D1/DA623E175D65C3C0/0A543F0365179C05 => star
+    015BA7A2250FA4D1/DA623E175D65C3C0/C0458858B721576B => star
+    015BA7A2250FA4D1/FD017067ECF5E177/0A543F0365179C05 => star
+
+    6181303D2E3EEB6C/64CDE172E66BA52D/0A543F0365179C05 => wars
+    6181303D2E3EEB6C/DA623E175D65C3C0/0A543F0365179C05 => wars
+    6181303D2E3EEB6C/FD017067ECF5E177/0A543F0365179C05 => wars
+
+    A2065D7267A72D3D/64CDE172E66BA52D/0A543F0365179C05 => StarWarsIV
+    A2065D7267A72D3D/DA623E175D65C3C0/0A543F0365179C05 => StarWarsIV
+    A2065D7267A72D3D/FD017067ECF5E177/0A543F0365179C05 => StarWarsIV
+
+    EC8DA41B66A78863/4B3722E05881C728/C0458858B721576B => trek
+    EC8DA41B66A78863/DA623E175D65C3C0/C0458858B721576B => trek
+
+#### example commands
+
+    echo "[wget [route-data [content-hash Hello. This is a message!]]/id]" | ./run -q -t
+
+This hashes by content, finds the route, connects to that server, retrieves /id URL
+that should contain its hash.
+
 #### We need a distributed filesystem
+
+see above?
 
 Two variants
 - CA, Content Addressable, hash the content, store on the node as owner, and "k nearest".
