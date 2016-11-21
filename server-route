@@ -1,1 +1,0 @@
-echo "[map route-id [iota 10] A B C D E F]" | ./run -q Servers/* | sed "s/ /\n/g"

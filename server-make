@@ -1,6 +1,7 @@
-if [ $# -lt 2 ]
+set -x
+if [ $# -ne 1 ]
   then
-    echo "Usage: ./server-make NAME Server/FRIEND"
+    echo "Usage: ./server-make NAME"
     echo
   exit 1
 fi
@@ -11,27 +12,45 @@ ID="`echo "[content-hash $UUID]" | ./run -q`"
 PORT=`random -e 500 ;  echo "8000+$?" | bc`
 URL="http://localhost:$PORT/"
 TIME="`date -Ins`"
+STATE="Servers/$ID-$NAME.state"
 
-echo "NAME=$NAME"
-echo "TIME=$TIME"
-echo "UUID=$UUID"
-echo "ID=$ID"
-echo "PORT=$PORT"
-echo "URL=$URL"
+echo "NAME : $NAME"
+echo "TIME : $TIME"
+echo "UUID : $UUID"
+echo "ID   : $ID"
+echo "PORT : $PORT"
+echo "URL  : $URL"
+echo "STATE: $STATE"
 
-# - add yourself to your FRIEND
-touch $2
-echo "[macro data-route-$ID]$URL $TIME $NAME ...[/macro]" >> $2
+grep -h data-route- Servers/*  > tmp-all-routes.state
+
+if [ -n "$(ls -A Servers)" ]
+then
+  PARENT="`echo "[third [route-data $ID]]" | ./jml -q tmp-all-routes.state`"
+  PARENT_ID="`echo "[third [split - [route-id $ID]]]" | ./jml -q tmp-all-routes.state`"
+  PARENT_STATE="Servers/$PARENT_ID-$PARENT.state"
+else  
+  echo "-- %% NO parent - creating first, self routing! --"
+  PARENT=$NAME
+  PARENT_STATE=$STATE
+fi
+  
+echo "PARENT      : $PARENT"
+echo "PARENT_STATE: $PARENT_STATE"
+
+# - add yourself to your PARENT
+touch $PARENT_STATE
+echo "[macro data-route-$ID]$URL $TIME $NAME ...[/macro]" >> $PARENT_STATE
 
 # - add to the new server
-touch Servers/$1.state
-echo "[-- $TIME @ `hostname`: Server $NAME created --]" >> Servers/$1.state
-echo "[macro /jml-id]$ID[/macro]" >> Servers/$1.state
-echo "[macro /jml-name]$NAME[/macro]" >> Servers/$1.state
-echo "[macro /jml-url]$URL[/macro]" >> Servers/$1.state
+touch $STATE
+echo "[-- $TIME @ `hostname`: Server $NAME created based on $PARENT--]" >> $STATE
+echo "[macro /jml-id]$ID[/macro]" >> $STATE
+echo "[macro /jml-name]$NAME[/macro]" >> $STATE
+echo "[macro /jml-url]$URL[/macro]" >> $STATE
 
-# - inherit routes from FRIEND, including our own
-grep data-route- $2  >> Servers/$1.state
+# - inherit routes from PARENT, including our own route/id
+grep -h data-route- $PARENT_STATE | cat >> $STATE
 
-echo
-cat Servers/$1.state
+echo "-- STATE OF SERVER: $NAME WITH ID: $ID --"
+cat $STATE
