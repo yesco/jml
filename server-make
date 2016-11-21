@@ -9,6 +9,7 @@ fi
 NAME="$1"
 UUID="`uuid`"
 ID="`echo "[content-hash $UUID]" | ./run -q`"
+# TODO: random does only seem to yield values up to 250???
 PORT=`random -e 500 ;  echo "8000+$?" | bc`
 URL="http://localhost:$PORT/"
 TIME="`date -Ins`"

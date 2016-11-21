@@ -750,7 +750,46 @@ void funsubst(Out out, char* funname, char* args) {
         strcat(name, id);
         fundef(name, "", data);
         s = data;
+    } else if (!strncmp(funname, "eval/", 5)) { // safe eval!
+        char* pattern = funname + 5;
+        char* ret = rest;
+        int parens = 0;
+        rest = strchr(rest, '{');
+        while (rest && *rest == '{') {
+            parens++;
+            // extract fun
+            char* fun = rest + 1;
+            char next;
+            char* endfun = fun;
+            while (next = *endfun) {
+                if (*endfun == '}' || *endfun == ' ') { *endfun = 0; break; }
+                endfun++;
+            }
+
+            // check if fun in pattern/allowed funcs
+            char* ok = strstr(pattern, fun);
+            if (!ok) return;
+            char last = *(ok+strlen(fun));
+            if (*(ok-1) != '/' || (last != '/' && last)) return;
+            
+            // restore
+            *endfun = next;
+
+            // ok
+            *rest = '[';
+
+            // convert any '}' to ']' until '['
+            while (*rest++ && *rest != '{') {
+                if (*rest == '}') {
+                    if (parens-- <= 0) return;
+                    *rest = ']';
+                }
+            }
+        }
+        if (parens) return;
+        s = ret;
     } else if (!strcmp(funname, "wget")) { // TODO: "remove", replace by guaranteed message...
+        // TODO: make a wget/FUNC/FUNC1/FUNC2 that will allow FUNC calls from source with name FUNCN...
         // TODO: bad that it's synchronious
         int result(void* data, char* s) {
             if (!s) return 1;

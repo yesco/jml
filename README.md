@@ -462,6 +462,26 @@ This is how to quote these characters
 In order to not allow injection, certain "web" characters are quoted on "input" from
 the web. These are: < > \[ \] &amp; ' "
 
+### eval/fun1/fun2/fun3...
+
+Eval will change {FUN...} to [FUN...]. For safety if, either {FUN...}
+doesn't match fun1/fun2/fun3... or number of {} doesn't match, then it returns empty string.
+This is good for combining with wget:
+
+    [macro route-confirm-id $ID]
+        [eval/add-route/route-url
+            [wget [route-url $ID]/route-confirm-id/$ID]]
+    [/macro
+
+    ==>
+
+    {route-confirm-id $ID {route-add FF http:...} {route-add FF http:...}}
+
+    ==>
+
+    $HOST_ID
+    
+
 #### Unicode
 
 TODO: Haha, come again? Don't you know the world consists of bits and bytes?
