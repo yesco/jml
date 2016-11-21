@@ -85,13 +85,13 @@
 [macro /name @name]Hello @name![/macro]
 
 [-- routing --]
-[macro route-add $id @data][data data-route-$id @data][/macro]
+[macro route-add $id $time $url @data][data data-route-$id $id $time $url @data][/macro]
 
 [macro route-id $hash][first [biggest [funcs data-route- data-route-$hash]] [biggest [funcs data-route-]]][/macro]
 [macro route-data $hash][[route-id $hash]][/macro]
 [macro route-url $hash][first [route-data $hash]][/macro]
 
-[macro /route-add $id $url @data][route-add $id $url @data][/macro]
+[macro /route-add $id $time $url @data][route-add $id $time $url @data][/macro]
 
 [macro route-data-pp $id]{$id [$id]}[/macro]
 [macro /route-list][map route-data-pp [list-data route-]][/macro]

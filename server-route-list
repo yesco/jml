@@ -1,0 +1,1 @@
+grep -h data-route- Servers/*.state | sort | uniq -c | sed 's/^    //g'

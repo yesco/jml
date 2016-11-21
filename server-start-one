@@ -1,0 +1,10 @@
+PORT="`./server-port $1`"
+ID="`./server-id $1`"
+
+echo "ID:$ID @ PORT:$PORT # FILE: $1" 
+
+./jml -q -w $PORT $1 &
+
+
+
+

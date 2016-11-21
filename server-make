@@ -1,6 +1,6 @@
 if [ $# -lt 2 ]
   then
-    echo "Usage: ./mkserver NAME Server/FRIEND"
+    echo "Usage: ./server-make NAME Server/FRIEND"
     echo
   exit 1
 fi
@@ -13,7 +13,7 @@ URL="http://localhost:$PORT/"
 TIME="`date -Ins`"
 
 echo "NAME=$NAME"
-echo "NAME=$TIME"
+echo "TIME=$TIME"
 echo "UUID=$UUID"
 echo "ID=$ID"
 echo "PORT=$PORT"
@@ -21,7 +21,7 @@ echo "URL=$URL"
 
 # - add yourself to your FRIEND
 touch $2
-echo "[macro data-route-$ID]$URL $NAME $TIME ...[/macro]" >> $2
+echo "[macro data-route-$ID]$URL $TIME $NAME ...[/macro]" >> $2
 
 # - add to the new server
 touch Servers/$1.state

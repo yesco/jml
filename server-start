@@ -1,10 +1,16 @@
-PORT="`./server-port $1`"
-ID="`./server-id $1`"
+# script to simulate a bunch of servers...
+# 
+# each server loads "jml.state" file then an individual unique file, one server per file is started.
+# To add one:
+#
+#   ./mkserver Servers/NEWSERVERNAME.state
+#
+echo "--- servers running: killing ---"
+./server-list
+./server-kill
 
-echo "ID:$ID @ PORT:$PORT # FILE: $1" 
+echo "--- servers starting ---"
+ls -1 Servers/* | xargs -L1 ./server-start-one
 
-./jml -q -w $PORT $1 &
-
-
-
-
+echo "--- servers started ---"
+./server-list
