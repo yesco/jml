@@ -459,29 +459,47 @@ This is how to quote these characters
 
 #### Safety, "SQL Injection"
 
-In order to not allow injection, certain "web" characters are quoted on "input" from
-the web. These are: < > \[ \] &amp; ' "
+In order to not allow injection, certain "web" characters should be
+quoted on "input" from the web or external sources. Examples include:
+&lt; &gt; \[ \] &amp; ' "
 
 ### eval/fun1/fun2/fun3...
 
-Eval will change {FUN...} to [FUN...]. For safety if, either {FUN...}
-doesn't match fun1/fun2/fun3... or number of {} doesn't match, then it returns empty string.
-This is good for combining with wget:
+Having an eval is flexible, however, a big security risk. We take the
+middle-ground and provide a "sandboxed" eval. When eval is invoked it
+also requires an enumeration of all functions that are allowed to be
+called.  Essentially this defines an API. For example to define a
+calculator with only plus minus times divide you specify
+[eval/plus/minus/times/divide ...]  Eval will change then change each
+occurance of {FUN...} to [FUN...] if fun is listed. If {} doesn't
+balance, empty string is returned, same if unlisted FUN is
+mentioned. This doesn't limit further eval/substituations.
 
-    [macro route-confirm-id $ID]
-        [eval/add-route/route-url
-            [wget [route-url $ID]/route-confirm-id/$ID]]
-    [/macro
+This, for example, can be used to implement a forward request in
+CHORD/DHT by having the server return updates as well as a new
+request in case the route is wrong. If the routing is right
+the contacted server would return it's own ID. Otherwise it
+returns a "textual-continuation" (program with data filled in),
+which coincidentially is exactly what a jml-program is!
 
-    ==>
+    [route-resolve $HASH]
 
-    {route-confirm-id $ID {route-add FF http:...} {route-add FF http:...}}
+If this doesn't resolve to the server you're at, it'll wget call that server and
+it will either confirm, or return "forwarding instructions". Essentially,
+some updates (route-add) and then a new route-resolve that depends on those updates.
 
-    ==>
+    {route-resolve $HASH {route-add 0375F9AB200504E9 2016-... http:...} {route-add DB348B3005A37278 2016-... http:...}}
+
+These are performed at/by the originating server, which will use:
+
+    [eval/route-resolve/route-add ...]
+
+to evaluate, if it again doesn't resolve locally, we'll get another
+forward and the new remote server will conform that it is the
+receipient by returning it's ID:
 
     $HOST_ID
     
-
 #### Unicode
 
 TODO: Haha, come again? Don't you know the world consists of bits and bytes?

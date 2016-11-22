@@ -87,17 +87,26 @@
 [-- routing --]
 [macro route-add $id $time $url @data][data data-route-$id $id $time $url @data][/macro]
 
-[macro route-id $hash][first [biggest [funcs data-route- data-route-$hash]] [biggest [funcs data-route-]]][/macro]
-[macro route-data $hash][[route-id $hash]][/macro]
-[macro route-url $hash][first [route-data $hash]][/macro]
+[macro route-local $hash][first [biggest [funcs data-route- data-route-$hash]] [biggest [funcs data-route-]]][/macro]
+[macro route-data $hash][[route-local $hash]][/macro]
+[macro route-url $route][first [route-data $route]][/macro]
 
 [macro /route-add $id $time $url @data][route-add $id $time $url @data][/macro]
 
-[macro route-data-pp $id]{$id [$id]}[/macro]
+[macro route-data-pp $id]{route-add [split data-route- $id] [$id]}[/macro]
 [macro /route-list][map route-data-pp [list-data route-]][/macro]
 
 [-- -- using last 16 hexchars of encrypted content as "hash" this is 64 bits only]
 [macro content-hash @content][substr -17 -16 [encrypt/ContentAddress @content]][/macro]
+
+[macro route-to-self? $route][equal data-route-[/jml-id] $route][/macro]
+[macro route-resolve $HASH][route-resolve-verify $HASH [route-local $HASH] route-resolve-remote][/macro]
+
+[macro route-resolve-verify $HASH $ROUTE $ACTION][[if [route-to-self? $ROUTE] rest $ACTION] $HASH $ROUTE][/macro]
+
+[macro route-resolve-remote $HASH $ROUTE][eval/ignore/add-route/route-resolve [wget [route-url $ROUTE]/route-resolve/$HASH]][/macro]
+[macro route-forward $HASH $ROUTE]{route-resolve-verify $HASH {ignore [/route-list]}}[/macro]
+[macro /route-resolve $HASH][route-resolve $HASH [route-id $HASH] route-forward][/macro]
 
 [-- <<< end of standard lib --]
 
