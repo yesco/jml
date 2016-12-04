@@ -1,4 +1,4 @@
-[macro list-data $A][funcs data-$A][/macro]
+[macro datas $A][funcs data-$A][/macro]
 [macro match $regexp $data][match-do identity $regexp $data][/macro]
 [macro ignore][/macro]
 [macro identity @all]@all[/macro]
@@ -44,13 +44,16 @@
 [macro italic @txt]<i>@txt</i>[/macro]
 [macro bold @txt]<i>@txt</i>[/macro]
 [macro link $URL @txt]<a href="$URL">@txt</a>[/macro]
+[macro b @txt]<b>@txt</b>[/macro]
+[macro dt @txt]<dt>[b @txt]</dt>[/macro]
+[macro dd @txt]<dd>@txt</dd>[/macro]
 
 [-- html forms --]
 [macro form $action @txt]<form action="$action">@txt</form>[/macro]
 [macro input $field @txt]<label><b>$field:</b> <input name='$field' value="@txt"/> </label>[/macro]
 [macro hidden $field @txt]<input type='hidden' name='$field' value="@txt"/>[/macro]
 [macro submit $field]<input type='submit' name='submit' value="$field"/>[/macro]
-[macro textarea $field @txt]<label><b>$field:</b><br/> <textarea id='$field' name='$field' resize='none' style='white-space: pre;overflow: hidden;'>@txt</textarea> </label><script>(function(){var e = document.getElementById('$field'); e.onfocus = e.onkeyup=function() {  var sh = this.scrollHeight, sw = this.scrollWidth;  this.style.height = sh < 50 ? "50px" : sh+"px";  this.style.width = sw < 50 ? "50px" : sw+"px";};})();</script>[/macro]
+[macro textarea $field @txt]<label><b>$field:</b><br/> <textarea id='$field' cols=20 rows=5 name='$field' resize='none' style='white-space: pre;overflow: hidden;'>@txt</textarea> </label><script>(function(){var e = document.getElementById('$field'); e.onfocus = e.onkeyup=function() {  var sh = this.scrollHeight, sw = this.scrollWidth;  this.style.height = sh < 50 ? "50px" : sh+"px";  this.style.width = sw < 50 ? "50px" : sw+"px";};})();</script>[/macro]
 
 [-- highlevel html --]
 [macro header @title]<html><head><title>@title</title></head><h1><a href='/'>/</a> @title</h1>[/macro]
@@ -59,7 +62,7 @@
 
 [-- system info --]
 [macro /about]JML Unikernel, (C) 2016 Jonas S Karlsson, [link [dup https://github.com/yesco/jml]]<hr>\n[/macro]
-[macro help]Math   : inc dec - / % > < >= <= = != + * (iota FROM TO STEP)\nString : empty equal cmp lower upper after before concat (split USING TEXT) (split-do FUN USING TEXT)\nRegexp: (match FUN REGEXP TEXT) # ^ab(c*).(x.*)y\$ \nX/HTML : (xml NAME TEXT) decode encrypt encrypt-eval decrypt decrypt-eval\nList   : length nth (map FUN ...) (filter PRED ...) (filter-do PRED FUN ...)\nSystem : time (datas PREFIX) (data ID TEXT) (data-ID) funcs fargs fbody\nFuncs  : [funcs]\n[/macro]
+[macro help]<dl>\n[dt Math   :][dd inc dec - / % > < >= <= = != + * (iota FROM TO STEP)]\n[dt String :][dd empty equal cmp lower upper after before concat (split USING TEXT) (split-do FUN USING TEXT)]\n[dt Regexp: ][dd (match REGEXP TEXT) (match-do FUN REGEXP TEXT) # ^ab(c*).(x.*)y\$]\n[dt X/HTML :][dd (xml NAME TEXT) decode encrypt encrypt-eval decrypt decrypt-eval]\n[dt List   :][dd length nth (map FUN ...) (filter PRED ...) (filter-do PRED FUN ...)]\n[dt System :][dd time (datas PREFIX) (data ID TEXT) (data-ID) funcs fargs fbody]\n[dt Funcs  :][dd [funcs]]\n</dt>[/macro]
 [macro /favicon.ico][-- make it shut up!][/macro]
 
 [-- basic system html app --]
@@ -70,15 +73,24 @@
 [macro fargs-input @txt][fargs-at @txt][fargs-dollar @txt][/macro]
 [macro f-li-input $fun @txt][li <form method='get' action='/$fun'> /$fun [fargs /$fun] [map fargs-input [fargs /$fun]] [submit $fun] </form>][/macro]
 
+[-- The FAIL macro get called when function doesn't exist --]
+[macro FAIL $id @params]<font color=red>%%(FAIL:$id @params)%%</font>[/macro]
+
 [macro /][sys-header Index]<ul>[map f-li-input [webfuncs]][footer]</u>[/macro]
 [macro /help][sys-header Help][help][footer][/macro]
 [macro /get $id][data-$id][/macro]
 [macro /put $id @txt][data $id @txt][/macro]
+
+[-- wiki app --]
 [macro wiki-markup @txt]@txt[/macro]
-[macro /wiki $id][sys-header Wiki - $id][wiki-markup [data-wiki-$id]][footer][/macro]
-[macro /edit $id][sys-header Edit Wiki - $id]<form>[hidden wiki $id][textarea edit [data-wiki-$id]]</form>[footer][/macro]
+[macro wiki-data $id][[if [have data-wiki-$id] data-wiki-$id wiki-nodata] $id][/macro]
+[macro wiki-nodata $id]<font color=red><b>This wiki page don't exist yet!</b></font>[/macro]
+[macro /wiki $id][sys-header Wiki - $id][wiki-markup [wiki-data $id]]<hr>[link /edit/$id (edit)][footer][/macro]
+[macro /edit $id][sys-header Edit Wiki - $id][form /save [hidden id $id][submit save]<br>[textarea text [wiki-data $id]]][footer][/macro]
+[macro /save $id @text][sys-header Save Wiki - $id]<h2>previous</h2>[data-wiki-$id]<h2>saved</h2>[data wiki-$id @text]<hr noshade><b>Hopefully saved...[link /wiki/$id (view it)]</b>[/macro]
+
 [macro f-li-nk $fun @txt][li [link /$fun $fun @txt]][/macro]
-[macro /list][sys-header List Data][map f-li-nk [list-data]][footer][/macro]
+[macro /list][sys-header List Data][map f-li-nk [datas]][footer][/macro]
 
 [-- demo --]
 [macro /input]Your name: [form /name <input name=’name’ type=isindex>][/macro]
@@ -94,7 +106,7 @@
 [macro /route-add $id $time $url @data][route-add $id $time $url @data][/macro]
 
 [macro route-data-pp $id]{route-add [split data-route- $id] [$id]}[/macro]
-[macro /route-list][map route-data-pp [list-data route-]][/macro]
+[macro /route-list][map route-data-pp [datas route-]][/macro]
 
 [-- -- using last 16 hexchars of encrypted content as "hash" this is 64 bits only]
 [macro content-hash @content][substr -17 -16 [encrypt/ContentAddress @content]][/macro]
@@ -110,5 +122,8 @@
 
 [-- <<< end of standard lib --]
 
-[-- user updates -- ]
 [macro quote @txt]{@txt}[/macro]
+
+[-- user updates -- ]
+
+[macro data-wiki-main]This is the main[/macro 1 2016-12-03T21:42:01Z  ]

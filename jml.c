@@ -59,7 +59,7 @@ static jmlputchartype jmlputchar;
 // if len == 0 actually print c - means no need capture to later process
 // if len == 1 append c
 void myout(int len, char c, char* s) {
-    len = s ? (len > 0 ? len : strlen(s)) : len;
+    len = s ? (len > 0 ? len : strlen(s)) : len; // TODO: if -1 what???
     // enough space?
     if (!out) {
         int sz = 1024 + ramlast;
@@ -90,7 +90,7 @@ void myout(int len, char c, char* s) {
     }
 
     if (s) {
-        while (*s) myout(1, *s++, NULL);
+        while (*s && len-- > 0) myout(1, *s++, NULL);
     } else if (len == 1) { 
         *to++ = c;
     } else {
@@ -196,7 +196,9 @@ typedef struct Match {
   char* end;
 } Match;
 
-Match match(char *regexp, char *text, char* fun, Out out) {
+// only knows ^ () * . $
+// TODO: + [] ?
+Match match(char *regexp, char *text, char* fun, Out out, int subst) {
   #define MAXLEVELS 10
   Match m[MAXLEVELS] = { 0 };
   
@@ -233,23 +235,34 @@ Match match(char *regexp, char *text, char* fun, Out out) {
   }
 
   matchstar = Xmatchstar;
+  char* last = text;
   if (Xmatch(regexp, text, 0)) {
-    out(1, ' ', NULL);
+    if (subst) {
+      char* end = m[0].start;
+      out(-1, 0, last);
+      last = NULL;
+    } else {
+      out(1, ' ', NULL);
+    }
     out(1, '[', NULL);
     out(-1, 0, fun);
     int i;
     // skip the "all" first match
     for(i = 1; i < MAXLEVELS; i++) {
        out(1, ' ', NULL);
+       // TODO: no allocat, just loop print characters?
        char* s = m[i].start && m[i].end ? strndup(m[i].start, m[i].end - m[i].start) : NULL;
        if (!s) break;
        out(-1, 0, s);
+       free(s);
+       last = m[i].end + 1;
        // fprintf(stderr, "   => '%s'./%s/ ... %d >%s<\n", text, regexp, i, s);
     }
     out(1, ']', NULL);
     return m[0];
   } else {
     m[0] = (Match){0, 0};
+    if (subst) out(-1, 0, last);
     return m[0];
   }
   #undef MAXLEVELS    
@@ -405,7 +418,8 @@ void macro_subst(Out out, FunDef* f, char* args) {
                 body += fargalen[i];
             } else {
                 // TOOD: this seems to loop forever at problem...
-                fprintf(stderr, "\n%%Argument: %s not found!\n", strtok(body, " "));
+                fprintf(stderr, "\n%%Argument: can't find argument in '%s'\n", strtok(body, " "));
+                return;
             }
         } else {
             if (c == '\\') out(1, *body++, NULL);
@@ -570,12 +584,18 @@ void funsubst(Out out, char* funname, char* args) {
         // TODO: name it match-do?
         // TODO: - [match F a(b*)(cd*)e(.*)f acexxxxxfff] => [F c xxxxx] ... b position missing, quote mode?
         // TODO: => [F {} {c} {xxxxx}] ???
+        char* fun = next();
+        char* regexp = next();
+        match(regexp, rest, fun, out, 0);
+        return;
+    } else if (!strcmp(funname, "subst-do")) {
+        // Like match-do but replaces matches
         char* rest = args;
         char* fun = next();
         rest += strlen(fun) + 1;
         char* regexp = next();
         rest += strlen(regexp) + 1;
-        match(regexp, rest, fun, out);
+        match(regexp, rest, fun, out, 1);
         return;
     } else if (!strcmp(funname, "concat")) {
         s = args; char* d = args;
@@ -862,12 +882,12 @@ void funsubst(Out out, char* funname, char* args) {
         return;
         // TODO: add parsing to int with strptime or gettime
     } else {
-        fprintf(stderr, "\n%%(FAIL:%s %s)%%", funname, args);
-        out(-1, 0, "<font color=red>%(FAIL:");
+        fprintf(stderr, "\n%%(%s %s)%%", funname, args);
+        out(-1, 0, "[FAIL ");
         out(-1, 0, funname);
         out(1, ' ', NULL);
         out(-1, 0, args);
-        out(-1, 0, ")%</font>");
+        out(1, ']', NULL);
         return;
     }
 
