@@ -1,34 +1,62 @@
-# jml - a useful web minimal unikernel operating system
+# jml - a useful web/cloud minimal unikernel distributed operating system
 
 TODO: rename to [MagniOS](https://en.wikipedia.org/wiki/M%C3%B3%C3%B0i_and_Magni)
 
 ## Goal
 
-Simple online programmable virtual physical computer with built in persistent "memory".
+Simple online-programmable virtual physical computer with built in
+persistent "memory" extending the IoT to simple internet/cloud
+computers, that are disposable scalable online reconfigurable minimal
+processing instances. This is an instance of a "single (minimalish)
+computer".
+
+But as we know the future is distributed and we need to provide
+infrastructure "above a single computer". This system provides such
+services implemented utilizing the said single computers.
 
 ## Woa!?
 
-So it's a html-generating programmable virtual computer with
-high-level lambda style "instructions". It does provide a minimal
-operating systems interface but that's not the goal. All the
-services/functions are "not" mapped or dependent of UNIX directly.
+So crassly seen it's a html-generating programmable virtual computer
+with high-level lambda style "instructions". As we know, lambda
+calculus is "described" by subsitution, here we take the approach that
+actual in-place substitution constitutes a viable computer. We provide
+a minimal of basic services without getting stuck in the trap of
+generality of an operating system. All the services/functions are
+"not" mapped to or dependent on a UNIX computer as such. Therefore, it
+can be hosted on containerized physical hardware SOAC (System On A
+Chip) like the ESP-8266.
 
 ### Services provided
 
-- Webserver response to call function
-- TODO: outgoing web request 
-- Persistent local store and program
-- TODO: websockets/mqtt
+(Things in parenthesis in progress..)
 
-Not sure what else is needed, unless you're accessing hardware specific
-things. These things defines a portable directly programmable
-computer.
+- Lambda style computational engine
+- (Reliable) Messaging to remote entity
+- Dispatch of incoming messages to user define API
+- Persistent local data store and extensible (pluggable) program
+- Encryption secured remote execution, and program upgrade
+- (Transferable state, movability)
+- CHORD-style distributed storage and addressing
+- (distributed service directory)
+- (distributed files and directories)
+
+Current limitations:
+- messaging currently limited to "REST" calls, could/should use UDP for small messages, otherwise TCP/IP
+- messaging not reliable/transactionable
+- persistence not atomic per triggering event/message
+
+It's not clear what would be missing as a minimized viable portable
+computing instance. If it's hardware connected to physical sensors
+measurement naturally it would be limited to such capable instances,
+often even to specific locations. Other functionality is portable, and
+transferable.
 
 ## First Principles
 
 This is a [First Principle's](https://en.wikipedia.org/wiki/First_principle) project.
-It means it starts from "scratch" with minimal requirements. Elon Musk uses this as
-his [innovation principle](http://99u.com/workbook/20482/how-elon-musk-thinks-the-first-principles-method).
+It means it starts from "scratch" with minimal requirements. Elon Musk
+uses this as his [innovation
+principle](http://99u.com/workbook/20482/how-elon-musk-thinks-the-first-principles-method).
 
 For example: "In physics, a calculation is said to be from first
 principles, or ab initio, if it starts directly at the level of
@@ -38,23 +66,24 @@ empirical model and fitting parameters." - wikipedia
 ## Requirements
 
 C (gcc) compiler, and simple unix style standard library calls.
-For security no external libraries are used.
+For "security" no external libraries are used.
 
 ## Why
 
-The idea of a minimal OS is coming up again, maybe recently (now is
-2016) than the last 30 years. We have docker, and various
+The idea of a minimal OS is coming up again, maybe recently more (now
+is 2016) than the last 30 years. We have docker, and various
 virtualization environments. It's funny to simulate an actual once
-existing hardware computer - mostly just a PC. However, there are
-other approaches, more minimal which are single language based. It is
-sometimes called a library OS. For example RTOS for ESP8266
+existing hardware computer - mostly just a IBM PC compatible. However,
+there are other approaches, more minimal which are single language
+based. These are sometimes called a library OS implementations. For
+example RTOS for ESP8266
 [esp-open-rtos](https://github.com/SuperHouse/esp-open-rtos) can be
 seen as such. It provides a small implementation of most of the
 libraries and system calls you'd expect on a POSIX/linux style
-computer. It is limited to a single process, so no fork. It does
-provide it's own threading/tasks and semaphore/messaging
-system. However, it doesn't provide infrastructure to think "above a
-single computer".
+computer. It is limited to a single process, so no fork/popen or
+system cals. It does provide it's own threading/tasks and
+semaphore/messaging system. However, it doesn't provide infrastructure
+to think "above a single computer".
 
 ## What is it?
 
@@ -71,7 +100,7 @@ Status: More "useless" than [Urbit](http://urbit.org/)!
 ## Outline of actions/TODO/DONE
 
 - DONE: small simple small language interpreter in C
-- what's the minimal set of functions needed?
+- NONMINAL: what's the minimal set of functions needed?
 - connectivity, receive requests/send requests (messaging)
 - logical + physical addressing something like [Kademlia](https://en.wikipedia.org/wiki/Kademlia)
 - callback verification [Magic cookie](https://en.wikipedia.org/wiki/Magic_cookie)
@@ -92,10 +121,10 @@ able to freeze them, and only work on extension on the soft-layer.
 
 ## How to run
 
-### command line
+### command line interactive
 
     ./run
-    
+
 ### batch
 
 This allows a single command, or several to be run and output captured.
@@ -108,6 +137,10 @@ To run it as a webserve on port 1111, or as given use the command below.
 Connect to it as [localhost:1111/](localhost:1111/).
 
     ./run -w [PORT]
+
+### simulated group of servers
+
+    ./start-servers
 
 ### debugging using tracing
 
@@ -132,12 +165,25 @@ Connect to it as [localhost:1111/](localhost:1111/).
 ### options for performance/info
 
     -q       == quiet mode, only writes %%error messages
-             == normal mode, start webserver, each request one line
+    -w       == normal mode, start webserver
     -v       == log timing and reductions info
     -v -v    == log reallocs
     -v -v -v == log allocs too
 
 # Language
+
+The language is a bastard variant of lambda calculus where the
+evalution is eager, and evaluation is performed by plain textual
+substitution. There are no variables as such, no stack, no closure, no
+circular data structures, no data structures. Semantics of our
+langauges is specified by legal substitutions. We find any "innermost"
+expression [FUN ARGS...] where FUN and ARGS do not contain any other
+expression (i.e. '[' or ']'). These are directly substitutable. Any
+number of such expressions may be substituted in any order as
+determined by the evaluator. Keep it functional, and it's safe! For
+achieving specific order of substitutions, create a "data dependency"
+where the dependent calculations wraps the calculation that are needed
+to be performed before the dependent calculation.
 
 ## simple string based evaluation
 
@@ -146,18 +192,69 @@ Connect to it as [localhost:1111/](localhost:1111/).
     foo [upper bar] fie => foo BAR fie
     [[concat up per] fie] = FIE
 
-Note, this language has a "different" if
+What is an if-statement, or any choice of execution path, if not just
+that: a choice of execution path!  In this language, we provide an
+'if' that will return which named function to invoke on the rest of
+the data;
 
     [if 0 1 2] => 2
     [if 1 1 2] => 1
     [if [< 3 4] smaller bigger] => smaller
 
-however, not, it's not lazy eval or special form:
+From this it can be seen that it is NOT a special form or have any
+specific rules, it only provides a choice of functions to invoke 
+on given arguments.
+
+For example, to implement fac recursively:
+
+    [macro fac $n][* $n [[if [<= $n 1] ignore fac] [- $n 1]]][/macro]
+
+    > [fac 6]
+    >>>[fac 6]<<<
+    >>>[* 6 [[if [<= 6 1] ignore fac] [- 6 1]]]<<<
+    >>>[* 6 [[if 0 ignore fac] 5]]<<<
+    >>>[* 6 [fac 5]]<<<
+    >>>[* 6 [* 5 [[if [<= 5 1] ignore fac] [- 5 1]]]]<<<
+    >>>[* 6 [* 5 [[if 0 ignore fac] 4]]]<<<
+    >>>[* 6 [* 5 [fac 4]]]<<<
+    >>>[* 6 [* 5 [* 4 [[if [<= 4 1] ignore fac] [- 4 1]]]]]<<<
+    >>>[* 6 [* 5 [* 4 [[if 0 ignore fac] 3]]]]<<<
+    >>>[* 6 [* 5 [* 4 [fac 3]]]]<<<
+    >>>[* 6 [* 5 [* 4 [* 3 [[if [<= 3 1] ignore fac] [- 3 1]]]]]]<<<
+    >>>[* 6 [* 5 [* 4 [* 3 [[if 0 ignore fac] 2]]]]]<<<
+    >>>[* 6 [* 5 [* 4 [* 3 [fac 2]]]]]<<<
+    >>>[* 6 [* 5 [* 4 [* 3 [* 2 [[if [<= 2 1] ignore fac] [- 2 1]]]]]]]<<<
+    >>>[* 6 [* 5 [* 4 [* 3 [* 2 [[if 0 ignore fac] 1]]]]]]<<<
+    >>>[* 6 [* 5 [* 4 [* 3 [* 2 [fac 1]]]]]]<<<
+    >>>[* 6 [* 5 [* 4 [* 3 [* 2 [* 1 [[if [<= 1 1] ignore fac] [- 1 1]]]]]]]]<<<
+    >>>[* 6 [* 5 [* 4 [* 3 [* 2 [* 1 [[if 1 ignore fac] 0]]]]]]]<<<
+    >>>[* 6 [* 5 [* 4 [* 3 [* 2 [* 1 [ignore 0]]]]]]]<<<
+    >>>[* 6 [* 5 [* 4 [* 3 [* 2 [* 1 ]]]]]]<<<
+    >>>[* 6 [* 5 [* 4 [* 3 [* 2 1]]]]]<<<
+    >>>[* 6 [* 5 [* 4 [* 3 2]]]]<<<
+    >>>[* 6 [* 5 [* 4 6]]]<<<
+    >>>[* 6 [* 5 24]]<<<
+    >>>[* 6 120]<<<
+    >>>720<<<
+    720
+
+Obviously a more efficient implementation is:
+
+    [macro fac $n][* [iota 1 $n]][/macro]
+
+    > [fac 6]
+    >>>[fac 6]<<<
+    >>>[* [iota 1 6]]<<<
+    >>>[* 1 2 3 4 5 6 ]<<<
+    >>>720<<<
+    720
+
+It can be used and misunderstood easily, the world be dammned!
 
     [macro foo]11 22[/macro]
     [macro bar]2 1[/macro]
 
-    [if 0 [foo] [bar]] => 20
+    [if 0 [foo] [bar]] => 22
 
     ???
 
@@ -171,7 +268,7 @@ How to do IFFFF THEN?
     [[if 0 foo bar]] => 2 1
     [[if 1 foo bar]] => 11 22
 
-So... you can do selection of names to expand. Switch style:
+Now, gettin into the gritty, this can be used to implement choice/switch/case-statements!
 
     [macro en-0]zero[/macro]
     [macro en-1]one[/macro]
@@ -202,17 +299,18 @@ from web browser
 
     unix> ./jml -w
 
-    http:localhost:1111/help
+Goto:
 
+    http:localhost:1111/help
 
 ## super eager evaluation
 
 The interpreter is very simple: it just eagerly evaluates any inner
-[fun par] expression where fun and par themselves have no function
-calls. I.e., the innermost [ ] expressions are replaced successively,
-the result is achieved by replacing the expression with the body where
-the formal parameter names have been substituted by the actual
-values. Parameters are space delimited.
+[fun params...] expression where fun and params themselves have no
+function calls. I.e., the innermost [ ] expressions are replaced
+successively, the result is achieved by replacing the expression with
+the body where the formal parameter names have been substituted by the
+actual values. Parameters are space delimited.
 
 ## efficiency
 
@@ -224,7 +322,7 @@ it on the net, so what's fast anyway?
 - active messaging
 - reactive, single user space, no address sharing
 - no processes, or tasks, single threaded
-- persistent data/program/functions once "uploaded" (TODO)
+- persistent data/program/functions once "uploaded"
 - simple evaluation mechanism
 - http communication (TODO)
 
@@ -295,8 +393,7 @@ Strings
 - [split a aAaBBaAa] => A BB A
 - [split-do inc a1a22a3a] => 2 23 4
 - [xml name ksajf; sadflk dsaflk <name c='foo'>FISH</name> sdfl sadf asdfdsa] => FISH
-- [match-do F a(b*)(cd*)e(.*)f abbbcexxxxxfff] => [F bbb c xxxxx]
-- [match a(b*)(cd*)e(.*)f abbbcexxxxxfff] =>  bbb c xxxxx
+
 - [substr FIRST LEN abcXzy] get substrings out
 - [substr 0 3 abcXzy] => abc, this is essentially "left"
 - [substr 3 2 abcXzy] => Xz, this is essentially "mid"
@@ -307,12 +404,19 @@ Strings
 - [concat A\ B C D ...] => A BCD...
 - [concat [concat a\ b c]] => A BCD...
 
+- [match a(b*)(cd*)e(.*)f abbbcexxxxxfff] =>  bbb c xxxxx
+- [match-do F a(b*)(cd*)e(.*)f abbbcexxxxxfff] => [F bbb c xxxxx]
+- [match-do F <(a*)> aa<aaa><aaaa>aa<a>fish<a>x] => [F aaa] [F aaaa] [F a] [f a]
+- [subst-do F <(a*)> aa<aaa><aaaa>aa<a>fish<a>x] => aa[F aaa][F aaaa]aa[F a]fish[f a]x
+
 WEB, decode URL
 - [decode foo+bar%2b%25] => foo bar+%
+- [wget URL] => BODY (quoted for safety)
+- [eval/FUN1/Fun2 ...] - see below!
 
 Storage/persistent/database
 - [data firstname Peter] .. [data-firstname] => Peter
-- [data] =? firstname ...
+- [datas] =? firstname ...
 - [funcs] => user defined func names
 - [funcs prefix] => user defined func names starting with prefix
 - [funcs start end] => user defined func names in [start, end[
@@ -320,15 +424,19 @@ Storage/persistent/database
 - [fbody macroname] -> foo $a fie $b fum: @foo
 
 Failure
-- [xyz sadfasdf] => (%FAIL: xyz sadfasdf)
+- [xyz sadfasdf] => [FAIL xyz sadfasdf]
+- [FAIL $id @params] => %(FAIL:xyz sadfasdf) - you can override this!
 
 ### Content Addressable Network
 
 We also add the capability of (CAN)[https://en.wikipedia.org/wiki/Content_addressable_network].
 
-For new we just implement Content Hashing by using the encrypt function with a fixed non-secret key.
-It may not qualify as cryptographically secure hashing function, but serves the purpose of a decent
-hash function, and we already have it...
+For now we just implement Content Hashing by using the encrypt
+function with a fixed non-secret key.  It may not qualify as
+cryptographically secure hashing function, but serves the purpose of a
+decent hash function, as it's already have it...
+
+TODO: ...
 
 #### Node Joining
 A joining node must:

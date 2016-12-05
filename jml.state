@@ -127,3 +127,6 @@
 [-- user updates -- ]
 
 [macro data-wiki-main]This is the main[/macro 1 2016-12-03T21:42:01Z  ]
+[macro fac $n][* $n [[if [< $n 1] ignore fac] [- $n 1]]][/macro 2 2016-12-05T08:24:33Z  ]
+[macro fac $n][* $n [[if [<= $n 1] ignore fac] [- $n 1]]][/macro 3 2016-12-05T08:25:07Z  ]
+[macro fac $n][* [iota 1 $n]][/macro 4 2016-12-05T08:27:42Z  ]
