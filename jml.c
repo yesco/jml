@@ -198,7 +198,7 @@ typedef struct Match {
 
 // only knows ^ () * . $
 // TODO: + [] ?
-Match match(char *regexp, char *text, char* fun, Out out, int subst) {
+Match match(char *regexp, char *text, char* fun, Out out, int subst, int global) {
   #define MAXLEVELS 10
   Match m[MAXLEVELS] = { 0 };
   
@@ -236,10 +236,10 @@ Match match(char *regexp, char *text, char* fun, Out out, int subst) {
 
   matchstar = Xmatchstar;
   char* last = text;
-  if (Xmatch(regexp, text, 0)) {
+  while (Xmatch(regexp, text, 0) && global) {
     if (subst) {
       char* end = m[0].start;
-      out(-1, 0, last);
+      out(end-last, 0, last);
       last = NULL;
     } else {
       out(1, ' ', NULL);
@@ -249,22 +249,20 @@ Match match(char *regexp, char *text, char* fun, Out out, int subst) {
     int i;
     // skip the "all" first match
     for(i = 1; i < MAXLEVELS; i++) {
-       out(1, ' ', NULL);
        // TODO: no allocat, just loop print characters?
        char* s = m[i].start && m[i].end ? strndup(m[i].start, m[i].end - m[i].start) : NULL;
        if (!s) break;
+       out(1, ' ', NULL);
        out(-1, 0, s);
        free(s);
-       last = m[i].end + 1;
+       last = m[i].end;
        // fprintf(stderr, "   => '%s'./%s/ ... %d >%s<\n", text, regexp, i, s);
     }
     out(1, ']', NULL);
-    return m[0];
-  } else {
-    m[0] = (Match){0, 0};
-    if (subst) out(-1, 0, last);
-    return m[0];
+    text = last;
   }
+  if (subst) out(-1, 0, last);
+  //global = 0;
   #undef MAXLEVELS    
 }
 
@@ -433,8 +431,8 @@ void macro_subst(Out out, FunDef* f, char* args) {
 // At the current position in outstream get the body of funname
 // and replace the actual arguments into positions of formals.
 void funsubst(Out out, char* funname, char* args) {
-    void skipspace() {
-        while(*args == ' ') args++;
+    void skipspace(char **pos) {
+        while(**pos == ' ') *pos++;
     }
     
     void outspace() {
@@ -586,16 +584,15 @@ void funsubst(Out out, char* funname, char* args) {
         // TODO: => [F {} {c} {xxxxx}] ???
         char* fun = next();
         char* regexp = next();
-        match(regexp, rest, fun, out, 0);
+        skipspace(&rest);
+        match(regexp, rest, fun, out, 0, 1);
         return;
     } else if (!strcmp(funname, "subst-do")) {
         // Like match-do but replaces matches
-        char* rest = args;
         char* fun = next();
-        rest += strlen(fun) + 1;
         char* regexp = next();
-        rest += strlen(regexp) + 1;
-        match(regexp, rest, fun, out, 1);
+        skipspace(&rest);
+        match(regexp, rest, fun, out, 1, 1);
         return;
     } else if (!strcmp(funname, "concat")) {
         s = args; char* d = args;
@@ -605,7 +602,7 @@ void funsubst(Out out, char* funname, char* args) {
             // read arg (till next unquoted space, or end)
             char last = 0;
             while (*args && (last == '\\' || *args != ' ')) *d++ = last = *args++;
-            skipspace();
+            skipspace(&args);
         }
         *d = 0;
     } else if (!strncmp(funname, "split", 5)) {
@@ -672,7 +669,7 @@ void funsubst(Out out, char* funname, char* args) {
         memcpy(k, key, kl > 16 ? 16 : kl);
 
         // trim space before and at end
-        skipspace();
+        skipspace(&args);
         char* last = args + strlen(args) - 1;
         while (*last == ' ') *last-- = 0;
         int l = strlen(args);
