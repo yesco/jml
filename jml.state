@@ -1,4 +1,5 @@
 [macro datas $A][funcs data-$A][/macro]
+[macro dataid $dataid][after data- $dataid][/macro]
 [macro match $regexp $data][match-do identity $regexp $data][/macro]
 [macro ignore][/macro]
 [macro identity @all]@all[/macro]
@@ -40,11 +41,16 @@
 
 [-- basic html --]
 [macro param $id @data][decode [before & [after &$id= &@data&]]][/macro]
+[macro link $url @txt]<a href="$url">[[if [empty @txt] first rest] $url @txt]</a>[/macro]
+[macro bold @txt]<i>@txt</i>[/macro]
+[macro b @txt]<b>@txt</b>[/macro]
+[macro i @txt]<i>@txt</i>[/macro]
 [macro li @txt]<li>@txt</li>[/macro]
 [macro italic @txt]<i>@txt</i>[/macro]
-[macro bold @txt]<i>@txt</i>[/macro]
-[macro link $URL @txt]<a href="$URL">@txt</a>[/macro]
-[macro b @txt]<b>@txt</b>[/macro]
+[macro h1 @txt]<h1>@txt</h1>[/macro]
+[macro h2 @txt]<h2>@txt</h2>[/macro]
+[macro h3 @txt]<h3>@txt</h3>[/macro]
+[macro h4 @txt]<h4>@txt</h4>[/macro]
 [macro dt @txt]<dt>[b @txt]</dt>[/macro]
 [macro dd @txt]<dd>@txt</dd>[/macro]
 
@@ -82,9 +88,14 @@
 [macro /put $id @txt][data $id @txt][/macro]
 
 [-- wiki app --]
-[macro wiki-markup @txt]@txt[/macro]
+[macro wiki-markup @txt][subst-do wiki-link {(.*)} [subst-do i /(.*)/ [subst-do b _(.*)_ [wiki-markup-headers @txt]]]][/macro]
+[macro wiki-markup-headers @txt][subst-do h1 =(.*)= [subst-do h2 ==(.*)== [subst-do h3 ===(.*)=== [subst-do h4 ====(.*)==== @txt]]]][/macro]
 [macro wiki-data $id][[if [have data-wiki-$id] data-wiki-$id wiki-nodata] $id][/macro]
-[macro wiki-nodata $id]<font color=red><b>This wiki page don't exist yet!</b></font>[/macro]
+[macro wiki-nodata $id]<font color=red>_This wiki page don't exist yet!_</font>===Wikis:===[wiki-list][/macro]
+[macro wiki-link $id][link wiki/$id $id][/macro]
+[macro wiki-datalink $dataid][li [wiki-link [after wiki- [dataid $dataid]]]][/macro]
+[macro wiki-list $id]<ul>[map wiki-datalink [datas wiki]]</ul>[/macro]
+
 [macro /wiki $id][sys-header Wiki - $id][wiki-markup [wiki-data $id]]<hr>[link /edit/$id (edit)][footer][/macro]
 [macro /edit $id][sys-header Edit Wiki - $id][form /save [hidden id $id][submit save]<br>[textarea text [wiki-data $id]]][footer][/macro]
 [macro /save $id @text][sys-header Save Wiki - $id]<h2>previous</h2>[data-wiki-$id]<h2>saved</h2>[data wiki-$id @text]<hr noshade><b>Hopefully saved...[link /wiki/$id (view it)]</b>[/macro]
@@ -126,7 +137,7 @@
 
 [-- user updates -- ]
 
-[macro data-wiki-main]This is the main[/macro 1 2016-12-03T21:42:01Z  ]
-[macro fac $n][* $n [[if [< $n 1] ignore fac] [- $n 1]]][/macro 2 2016-12-05T08:24:33Z  ]
-[macro fac $n][* $n [[if [<= $n 1] ignore fac] [- $n 1]]][/macro 3 2016-12-05T08:25:07Z  ]
-[macro fac $n][* [iota 1 $n]][/macro 4 2016-12-05T08:27:42Z  ]
+[macro data-wiki-main]This is the main[/macro]
+[macro data-wiki-fish]I don't like fish![/macro]
+[macro data-wiki-]==Welcome to the MagniOS wiki!\n==This wiki is rather small, with meager features.\nHowever, it's free and easy to change!\n\nIt's built in a simple text-substitution language called {JML} running a simple cloud operating system.\n[/macro]
+

@@ -59,7 +59,7 @@ static jmlputchartype jmlputchar;
 // if len == 0 actually print c - means no need capture to later process
 // if len == 1 append c
 void myout(int len, char c, char* s) {
-    len = s ? (len > 0 ? len : strlen(s)) : len; // TODO: if -1 what???
+    len = s ? (len >= 0 ? len : strlen(s)) : len; // TODO: if -1 what???
     // enough space?
     if (!out) {
         int sz = 1024 + ramlast;
@@ -236,6 +236,7 @@ Match match(char *regexp, char *text, char* fun, Out out, int subst, int global)
 
   matchstar = Xmatchstar;
   char* last = text;
+  m[0] = (Match){text, text};
   while (Xmatch(regexp, text, 0) && global) {
     if (subst) {
       char* end = m[0].start;
@@ -261,7 +262,7 @@ Match match(char *regexp, char *text, char* fun, Out out, int subst, int global)
     out(1, ']', NULL);
     text = last;
   }
-  if (subst) out(-1, 0, last);
+  if (subst) out(-1, 0, m[0].end);
   //global = 0;
   #undef MAXLEVELS    
 }
@@ -591,6 +592,7 @@ void funsubst(Out out, char* funname, char* args) {
         // Like match-do but replaces matches
         char* fun = next();
         char* regexp = next();
+        fprintf(stderr, "\n%%subst-do fun=%s< regexp=%s<\n", fun, regexp);
         skipspace(&rest);
         match(regexp, rest, fun, out, 1, 1);
         return;
