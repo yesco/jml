@@ -1,9 +1,10 @@
+[macro -- @comment][/macro]
 [macro datas $A][funcs data-$A][/macro]
 [macro dataid $dataid][after data- $dataid][/macro]
 [macro match $regexp $data][match-do identity $regexp $data][/macro]
 [macro ignore][/macro]
 [macro identity @all]@all[/macro]
-[macro -- @comment][/macro]
+[macro quote @txt]{@txt}[/macro]
 [macro have $f][not [empty [fbody $f]]][/macro]
 
 [-- math]
@@ -132,8 +133,6 @@
 [macro /route-resolve $HASH][route-resolve $HASH [route-id $HASH] route-forward][/macro]
 
 [-- <<< end of standard lib --]
-
-[macro quote @txt]{@txt}[/macro]
 
 [-- user updates -- ]
 
