@@ -592,7 +592,7 @@ void funsubst(Out out, char* funname, char* args) {
         // Like match-do but replaces matches
         char* fun = next();
         char* regexp = next();
-        fprintf(stderr, "\n%%subst-do fun=%s< regexp=%s<\n", fun, regexp);
+        if (verbose > 1) fprintf(stderr, "\n%%subst-do fun=%s< regexp=%s<\n", fun, regexp);
         skipspace(&rest);
         match(regexp, rest, fun, out, 1, 1);
         return;

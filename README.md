@@ -29,11 +29,11 @@ Chip) like the ESP-8266.
 ### Services provided
 
 (Things in parenthesis in progress..)
-
 - Lambda style computational engine
 - (Reliable) Messaging to remote entity
 - Dispatch of incoming messages to user define API
-- Persistent local data store and extensible (pluggable) program
+- Persistent local event data store
+- Online extensible program
 - Encryption secured remote execution, and program upgrade
 - (Transferable state, movability)
 - CHORD-style distributed storage and addressing
@@ -50,6 +50,13 @@ computing instance. If it's hardware connected to physical sensors
 measurement naturally it would be limited to such capable instances,
 often even to specific locations. Other functionality is portable, and
 transferable.
+
+Handy features:
+- built in / handler
+- built in mini-wiki!
+- built in reflection
+- built in display of public /api handler and generating form/buttons for easy interaction
+- simple portable symmetric encryption (XXTEA)
 
 ## First Principles
 

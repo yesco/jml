@@ -38,8 +38,6 @@
 [macro biggest @all][reduce big @all][/macro]
 [macro smallest @all][reduce small @all][/macro]
 
-[macro replace $fun $what @txt][@txt][/macro][-- TODO: this is of course not working...]
-
 [-- basic html --]
 [macro param $id @data][decode [before & [after &$id= &@data&]]][/macro]
 [macro link $url @txt]<a href="$url">[[if [empty @txt] first rest] $url @txt]</a>[/macro]
@@ -89,7 +87,7 @@
 [macro /put $id @txt][data $id @txt][/macro]
 
 [-- wiki app --]
-[macro wiki-markup @txt][subst-do wiki-link {(.*)} [subst-do i /(.*)/ [subst-do b _(.*)_ [wiki-markup-headers @txt]]]][/macro]
+[macro wiki-markup @txt][subst-do li (\n-.*) [subst-do wiki-link {(.*)} [subst-do i /(.*)/ [subst-do b _(.*)_ [wiki-markup-headers @txt]]]]][/macro]
 [macro wiki-markup-headers @txt][subst-do h1 =(.*)= [subst-do h2 ==(.*)== [subst-do h3 ===(.*)=== [subst-do h4 ====(.*)==== @txt]]]][/macro]
 [macro wiki-data $id][[if [have data-wiki-$id] data-wiki-$id wiki-nodata] $id][/macro]
 [macro wiki-nodata $id]<font color=red>_This wiki page don't exist yet!_</font>===Wikis:===[wiki-list][/macro]
