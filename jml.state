@@ -58,7 +58,8 @@
 [macro input $field @txt]<label><b>$field:</b> <input name='$field' value="@txt"/> </label>[/macro]
 [macro hidden $field @txt]<input type='hidden' name='$field' value="@txt"/>[/macro]
 [macro submit $field]<input type='submit' name='submit' value="$field"/>[/macro]
-[macro textarea $field @txt]<label><b>$field:</b><br/> <textarea id='$field' cols=20 rows=5 name='$field' resize='none' style='white-space: pre;overflow: hidden;'>@txt</textarea> </label><script>(function(){var e = document.getElementById('$field'); e.onfocus = e.onkeyup=function() {  var sh = this.scrollHeight, sw = this.scrollWidth;  this.style.height = sh < 50 ? "50px" : sh+"px";  this.style.width = sw < 50 ? "50px" : sw+"px";};})();</script>[/macro]
+[macro textarea-mini $field @txt]<label><b>$field:</b><br/> <textarea id='$field' cols=20 rows=5 name='$field' resize='none' style='white-space: pre;overflow: hidden;'>@txt</textarea> </label><script>(function(){var e = document.getElementById('$field'); e.onfocus = e.onkeyup=function() {  var sh = this.scrollHeight, sw = this.scrollWidth;  this.style.height = sh < 50 ? "50px" : sh+"px";  this.style.width = sw < 50 ? "50px" : sw+"px";};})();</script>[/macro]
+[macro textarea $field @txt]<label><b>$field:</b><br/> <textarea id='$field' cols=60 rows=12 name='$field' resize='none' style='white-space: pre;overflow: hidden; width:100%'>@txt</textarea> </label><script>(function(){var e = document.getElementById('$field'); e.onfocus = e.onkeyup=function() {  var sh = this.scrollHeight, sw = this.scrollWidth;  this.style.height = sh < 50 ? "50px" : sh+"px";  this.style.width = "100%" : sw+"px";};})();</script>[/macro]
 
 [-- highlevel html --]
 [macro header @title]<html><head><title>@title</title></head><h1><a href='/'>/</a> @title</h1>[/macro]
@@ -74,7 +75,7 @@
 [macro isweb $fun][after / $fun][/macro]
 [macro webfuncs][map isweb [funcs]][/macro]
 [macro fargs-dollar @txt]<br/>[[if [empty [after \$ @txt]] ignore input] [after \$ @txt]][/macro]
-[macro fargs-at @txt]<br/>[[if [empty [after \@ @txt]] ignore textarea] [after \@ @txt]][/macro]
+[macro fargs-at @txt]<br/>[[if [empty [after \@ @txt]] ignore textarea-mini] [after \@ @txt]][/macro]
 [macro fargs-input @txt][fargs-at @txt][fargs-dollar @txt][/macro]
 [macro f-li-input $fun @txt][li <form method='get' action='/$fun'> /$fun [fargs /$fun] [map fargs-input [fargs /$fun]] [submit $fun] </form>][/macro]
 
@@ -87,6 +88,7 @@
 [macro /put $id @txt][data $id @txt][/macro]
 
 [-- wiki app --]
+[--  consider using - http://www.zim-wiki.org/manual/Help/Wiki_Syntax.html]
 [macro wiki-markup @txt][subst-do li (\n-.*) [subst-do wiki-link {(.*)} [subst-do i /(.*)/ [subst-do b _(.*)_ [wiki-markup-headers @txt]]]]][/macro]
 [macro wiki-markup-headers @txt][subst-do h1 =(.*)= [subst-do h2 ==(.*)== [subst-do h3 ===(.*)=== [subst-do h4 ====(.*)==== @txt]]]][/macro]
 [macro wiki-data $id][[if [have data-wiki-$id] data-wiki-$id wiki-nodata] $id][/macro]
@@ -94,10 +96,13 @@
 [macro wiki-link $id][link wiki/$id $id][/macro]
 [macro wiki-datalink $dataid][li [wiki-link [after wiki- [dataid $dataid]]]][/macro]
 [macro wiki-list $id]<ul>[map wiki-datalink [datas wiki]]</ul>[/macro]
+[macro wiki-preview-link $id]<button type='button'><a id='preview-link' href='/format?Oh+There+is+no+edit+yet!' target='preview'>preview</a></button><script>setTimeout(function(){var text=document.getElementById('text');text.onchange=function(x){var previewlink = document.getElementById('preview-link');previewlink.href='/format?id=FOO&text=' + encodeURIComponent(text.value);return x;}}, 0);</script>[/macro]
+[macro wiki-edit $id][sys-header Edit Wiki - $id][form /save [hidden id [first $id main]][submit save]<br>[wiki-preview-link $id]<br>[textarea text [wiki-data $id]]][h2 Preview - NOT saved!]<iframe id='preview' name='preview' style='width:100%;height:100%;'></iframe>[footer][/macro]
 
-[macro /wiki $id][sys-header Wiki - $id][wiki-markup [wiki-data $id]]<hr>[link /edit/$id (edit)][footer][/macro]
-[macro /edit $id][sys-header Edit Wiki - $id][form /save [hidden id $id][submit save]<br>[textarea text [wiki-data $id]]][footer][/macro]
+[macro /wiki $id][sys-header Wiki - $id][wiki-markup [wiki-data [first $id main]]]<hr>[link /edit/$id (edit)][footer][/macro]
+[macro /edit $id][wiki-edit [first $id main]][/macro]
 [macro /save $id @text][sys-header Save Wiki - $id]<h2>previous</h2>[data-wiki-$id]<h2>saved</h2>[data wiki-$id @text]<hr noshade><b>Hopefully saved...[link /wiki/$id (view it)]</b>[/macro]
+[macro /format $id @txt][wiki-markup @txt][/macro]
 
 [macro f-li-nk $fun @txt][li [link /$fun $fun @txt]][/macro]
 [macro /list][sys-header List Data][map f-li-nk [datas]][footer][/macro]
@@ -136,5 +141,4 @@
 
 [macro data-wiki-main]This is the main[/macro]
 [macro data-wiki-fish]I don't like fish![/macro]
-[macro data-wiki-]==Welcome to the MagniOS wiki!\n==This wiki is rather small, with meager features.\nHowever, it's free and easy to change!\n\nIt's built in a simple text-substitution language called {JML} running a simple cloud operating system.\n[/macro]
-
+[macro data-wiki-wiki]==Welcome to the MagniOS wiki!==\nThis wiki is rather small, with meager features.\nHowever, it's free and easy to change!\n\nIt's built in a simple text-substitution language called {JML} running a simple cloud operating system.\n[/macro]

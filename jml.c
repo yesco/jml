@@ -152,10 +152,20 @@ void fprintFun(FILE* f, int i) {
     
     last_logpos++;
     // TODO: test for faiure
-    int r = fprintf(f, "[macro %s%s%s]%s[/macro %d %s %s %s]\n",
-                    fun->name, strlen(fun->args) ? " " : "", fun->args, fun->body,
-                    last_logpos, iso, user, comment);
-    if (r < 0) { fprintf(stderr, "\n%%Writing function %s at position %d failed\n", fun->name, i); exit(77); }
+    int r = 1;
+    if (r > 0) r = fprintf(f, "[macro %s%s%s]", fun->name, strlen(fun->args) ? " " : "", fun->args);
+    if (r > 0) {
+        char* data = fun->body;
+        char c;
+        while (c = *(data++)) {
+            if (c == '\n') fputs("\\n", f);
+            else if (c == '\r') ; // fputs("\\r", f);
+            else fputc(c, f);
+        }
+    }
+    if (r > 0) r = fprintf(f, "[/macro %d %s %s %s]\n", last_logpos, iso, user, comment);
+
+    if (r <= 0) { fprintf(stderr, "\n%%Writing function %s at position %d failed\n", fun->name, i); exit(77); }
     fflush(f);
 
     if (verbose >= 0) fprintf(stderr, "{--APPENDED %s to file--}", fun->name);
@@ -763,6 +773,7 @@ void funsubst(Out out, char* funname, char* args) {
         char* id = next();
         if (!*id) return;
         char* data = rest;
+        // prefix the name with 'data-'
         char name[strlen(id)+1+5];
         name[0] = 0;
         strcat(name, "data-");
@@ -1080,7 +1091,7 @@ static void jmlresponse(int req, char* method, char* path) {
     // TODO: unsafe to allow call of any function, maybe only allow call "/func" ?
     if (strchr(args, '=')) { // url on form /fun?var1=value1&var2=value2
         // We wrap all extractions in a big decode, half non-kosher
-        myout(-1, 0, "[decode");
+        myout(-1, 0, "[decode ");
 
         // TODO: could extract parameters in correct order.
         // for now, just extract values and put spaces between
@@ -1088,6 +1099,7 @@ static void jmlresponse(int req, char* method, char* path) {
         char* name = strtok(args, "=");
         while (name) {
             char* val = strtok(NULL, "&");
+            // fprintf(stderr, "\n==ARG>%s< = >%s<\n", name, val);
             if (strcmp(name, "submit") != 0) { // not submit
                 myout(1, ' ', NULL);
                 safeout(-1, 0, val);
