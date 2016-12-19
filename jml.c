@@ -103,23 +103,23 @@ void myout(int len, char c, char* s) {
 // use this when reading from ANY external source (web, file, env variables etc)
 // TODO: How effective is this?
 // TODO: how does \\ handle?
-void safeout(int len, char c, char* s) {
-    myout(len, c, s); return;
+void safeout(int len, char c, char* s, Out xout) {
+    //myout(len, c, s); return; // TODO(jsk): wtf?
     if (len == 1) {
         if (0) ;
-        else if (c == '\"') myout(-1, 0, "&quot;");
-        else if (c == '\'') myout(-1, 0, "&#39;");
-        else if (c == '&') myout(-1, 0, "&amp;");
-        else if (c == '[') myout(-1, 0, "&#91;");
-        else if (c == ']') myout(-1, 0, "&#93;");
-        else myout(1, c, NULL);
-    if (len < 0) {
+        else if (c == '\"') xout(-1, 0, "&quot;");
+        else if (c == '\'') xout(-1, 0, "&#39;");
+        else if (c == '&') xout(-1, 0, "&amp;");
+        else if (c == '[') xout(-1, 0, "&#91;");
+        else if (c == ']') xout(-1, 0, "&#93;");
+        else xout(1, c, NULL);
+    } else if (len < 0) {
         len = strlen(s);
         char c;
-        while (c = *s) safeout(1, *s++, NULL);
-    } else if (len == 0)
+        while (c = *s) safeout(1, *s++, NULL, xout);
+    } else if (len == 0) {
         // nothing safe
-        safeout(0, c, NULL);
+        xout(0, c, NULL);
     }
 }
 
@@ -217,14 +217,17 @@ Match match(char *regexp, char *text, char* fun, Out out, int subst, int global)
   
   /* matchhere: search for regexp at beginning of text */
   int Xmatchhere(char *regexp, char *text, int level) {
+    if (!*text) return !*regexp;
     if (level >= MAXLEVELS) { fprintf(stderr, "\n%%Regexp full %s", regexp); return 0; }
     if (!*regexp) { m[0].end = text; return 1; }
     if (*regexp == '(') { m[++level].start = text; return Xmatchhere(regexp+1, text, level); }
     if (*regexp == ')') { m[level].end = text; return Xmatchhere(regexp+1, text, level); }
     if (regexp[1] == '*') return matchstar(*regexp, regexp+2, text, level);
     if (*regexp == '$' && !regexp[1]) { if (!m[level].end) m[level].end = text; return *text == '\0'; }
-    if (*text && (*regexp == '.' || *regexp == *text))
-      return Xmatchhere(regexp+1, text+1, level);
+    if (*regexp == '\\' && regexp[1] == 'n' && *text == '\n') {
+        return Xmatchhere(regexp+2, text+1, level);
+    }
+    if (*text && (*regexp == '.' || *regexp == *text)) return Xmatchhere(regexp+1, text+1, level);
     return 0;
   }
 
@@ -237,7 +240,11 @@ Match match(char *regexp, char *text, char* fun, Out out, int subst, int global)
   }
 
   int Xmatch(char* regexp, char* text, int level) {
+    if (!text || !*text) return !*regexp;
     if (*regexp == '^') return Xmatchhere(regexp+1, m[level].start = text, level);
+    // TODO: not correct, as we call many times with "global" pretent there is an \n at the beginning
+    if (*regexp == '\\' && regexp[1] == 'n'
+        && Xmatchhere(regexp+2, m[level].start = text, level)) return 1;
     do { /* must look even if string is empty */
       if (Xmatchhere(regexp, m[level].start = text, level)) return 1;
     } while (*text++);
@@ -270,6 +277,7 @@ Match match(char *regexp, char *text, char* fun, Out out, int subst, int global)
        // fprintf(stderr, "   => '%s'./%s/ ... %d >%s<\n", text, regexp, i, s);
     }
     out(1, ']', NULL);
+    if (last == text) break;
     text = last;
   }
   if (subst) out(-1, 0, m[0].end);
@@ -653,7 +661,6 @@ void funsubst(Out out, char* funname, char* args) {
         char* x = s = args;
         while (*x) {
             if (*x == '+') *x = ' ';
-            if (*x == '/') *x = ' ';
             if (*x == '%') {
                 *x = HEX2INT(*(x+1)) * 16 + HEX2INT(*(x+2));
                 memmove(x+1, x+3, strlen(x+3) + 1);
@@ -881,7 +888,15 @@ void funsubst(Out out, char* funname, char* args) {
     } else if (!strcmp(funname, "fbody")) {
         FunDef* f = findfun(next());
         if (!f) return;
-        out(-1, 0, f->body);
+        // quote it
+        char *b = f->body;
+        char c;
+        while (*b) {
+            if (*b == '[') out(1, '{', NULL);
+            else if (*b == ']') out(1, '}', NULL);
+            else out(1, *b, NULL);
+            b++;
+        }
         return;
     } else if (!strcmp(funname, "time")) {
         time_t now;
@@ -1085,7 +1100,7 @@ static void jmlresponse(int req, char* method, char* path) {
     // TODO: 4. /?[fun+foo+bar]   => [/fun foo bar]
     // if '/fun' doesn't exists it'll try 'fun' -- TODO: safety problem? ;-)
     myout(1, '[', NULL);
-    safeout(-1, 0, path);
+    safeout(-1, 0, path, myout);
     myout(1, ' ', NULL);
 
     // TODO: unsafe to allow call of any function, maybe only allow call "/func" ?
@@ -1102,7 +1117,7 @@ static void jmlresponse(int req, char* method, char* path) {
             // fprintf(stderr, "\n==ARG>%s< = >%s<\n", name, val);
             if (strcmp(name, "submit") != 0) { // not submit
                 myout(1, ' ', NULL);
-                safeout(-1, 0, val);
+                safeout(-1, 0, val, myout);
             }
 
             name = strtok(NULL, "=");
@@ -1111,7 +1126,13 @@ static void jmlresponse(int req, char* method, char* path) {
         myout(1, ']', NULL);
     } else { // url stuff on form /fun?arg1+arg2
         myout(-1, 0, "[decode ");
-        safeout(-1, 0, args);
+        char c;
+        // replace a/b/c => a b c
+        while (c = *args++) {
+            if (c == '/') safeout(1, ' ', NULL, myout);
+            else safeout(1, c, NULL, myout);
+        }
+        // safeout(-1, 0, args);
         myout(1, ']', NULL);
     }
 
@@ -1121,7 +1142,7 @@ static void jmlresponse(int req, char* method, char* path) {
 
     int putt(int c) {
         static int escape = 0;
-        if (escape && c == 'n') { write(req, "<br>", 4); c = '\n'; }
+        if (escape && c == 'n') c = '\n'; //{ write(req, "<br>", 4); c = '\n'; }
         if (escape && c == 't') c = '\t';
         if (escape = (c == '\\')) return 0;
 
