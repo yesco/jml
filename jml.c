@@ -204,6 +204,7 @@ FunDef* findfun(char* funname) {
 typedef struct Match {
   char* start;
   char* end;
+  char* endend;
 } Match;
 
 // only knows ^ () * . $
@@ -217,6 +218,7 @@ Match match(char *regexp, char *text, char* fun, Out out, int subst, int global)
   
   /* matchhere: search for regexp at beginning of text */
   int Xmatchhere(char *regexp, char *text, int level) {
+    m[level].endend = text;
     if (!*text) return !*regexp;
     if (level >= MAXLEVELS) { fprintf(stderr, "\n%%Regexp full %s", regexp); return 0; }
     if (!*regexp) { m[0].end = text; return 1; }
@@ -267,14 +269,15 @@ Match match(char *regexp, char *text, char* fun, Out out, int subst, int global)
     int i;
     // skip the "all" first match
     for(i = 1; i < MAXLEVELS; i++) {
-       // TODO: no allocat, just loop print characters?
-       char* s = m[i].start && m[i].end ? strndup(m[i].start, m[i].end - m[i].start) : NULL;
-       if (!s) break;
-       out(1, ' ', NULL);
-       out(-1, 0, s);
-       free(s);
-       last = m[i].end;
-       // fprintf(stderr, "   => '%s'./%s/ ... %d >%s<\n", text, regexp, i, s);
+        // TODO: no allocat, just loop print characters?
+        char* s = (m[i].start && m[i].end) ? strndup(m[i].start, m[i].end - m[i].start) : NULL;
+        if (!s) break;
+        out(1, ' ', NULL);
+        out(-1, 0, s);
+        free(s);
+        if (m[i].endend) last = m[i].endend;
+        if (!last && m[i].end) last = m[i].end;
+        // fprintf(stderr, "   => '%s'./%s/ ... %d >%s<\n", text, regexp, i, s);
     }
     out(1, ']', NULL);
     if (last == text) break;
