@@ -100,11 +100,12 @@ int httpd_next(int s, httpd_header emit_header, httpd_body emit_body, httpd_resp
     int expectedsize = -1;
     while (fdgetline(&buffer, &len, req) > 0) {
         if (emit_header) emit_header(buffer, method, path);
-        if (strcmp(buffer, "Content-Length: ") == 0) {
+        if (strncmp(buffer, "Content-Length: ", strlen("Content-Length: ")) == 0) {
             // http://www.w3.org/Protocols/rfc2616/rfc2616-sec4.html#sec4.4
             // http://stackoverflow.com/questions/2773396/whats-the-content-length-field-in-http-header
             strtok(buffer, " ");
             expectedsize = atoi(strtok(NULL, " "));
+            // fprintf(stderr, "\nLEN=%d\n", expectedsize);
         }
     }
     if (emit_header) emit_header(NULL, method, path);
@@ -130,6 +131,20 @@ int httpd_next(int s, httpd_header emit_header, httpd_body emit_body, httpd_resp
         bodycount += n;
         if (n > 0 && emit_body) emit_body(buffer, method, path);
     }
+    // BODY.ignored: ------WebKitFormBoundaryFxBJmZhQgTbUb0sG
+    // Content-Disposition: form-data; name="submit"
+    // 
+    // send
+    // ------WebKitFormBoundaryFxBJmZhQgTbUb0sG
+    // Content-Disposition: form-data; name="foo"
+    // bar
+    // ------WebKitFormBoundaryFxBJmZhQgTbUb0sG
+    // Content-Disposition: form-data; name="fie"
+    // 
+    // fum
+    // ------WebKitFormBoundaryFxBJmZhQgTbUb0sG--
+    //
+    // BODY.ignored: (null)
     free(buffer);
     if (emit_body) emit_body(NULL, method, path);
 

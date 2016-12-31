@@ -58,7 +58,8 @@
 [macro hspace $width]<div style='width:$width'>&nbsp;</div>[/macro]
 
 [-- html forms --]
-[macro form $action @txt]<form action="$action">@txt</form>[/macro]
+[macro form-get $action @txt]<form action="$action">@txt</form>[/macro]
+[macro form $action @txt]<form method="post" action="$action">@txt</form>[/macro]
 [macro input $field @txt]<label><b>$field:</b> <input name='$field' value="@txt"/> </label>[/macro]
 [macro hidden $field @txt]<input type='hidden' name='$field' value="@txt"/>[/macro]
 [macro submit $field]<input type='submit' name='submit' value="$field" class="button"/>[/macro]
@@ -76,6 +77,9 @@
 [macro help]<dl>\n[dt Math   :][dd inc dec - / % > < >= <= = != + * (iota FROM TO STEP)]\n[dt String :][dd empty equal cmp lower upper after before concat (split USING TEXT) (split-do FUN USING TEXT)]\n[dt Regexp: ][dd (match REGEXP TEXT) (match-do FUN REGEXP TEXT) # ^ab(c*).(x.*)y\$]\n[dt X/HTML :][dd (xml NAME TEXT) decode encrypt encrypt-eval decrypt decrypt-eval]\n[dt List   :][dd length nth (map FUN ...) (filter PRED ...) (filter-do PRED FUN ...)]\n[dt System :][dd time (datas PREFIX) (data ID TEXT) (data-ID) funcs fargs fbody]\n[dt Funcs  :][dd [funcs]]\n</dt>[/macro]
 [macro /favicon.ico][-- make it shut up!][/macro]
 
+[-- misc web-client --]
+[macro set-cookie $field $value $seconds]<script>document.cookie = "$field=$value; max-age=[first $seconds 60]; path=/";</script>[/macro]
+
 [-- basic system html app --]
 [macro isweb $fun][after / $fun][/macro]
 [macro webfuncs][map isweb [funcs]][/macro]
@@ -83,6 +87,17 @@
 [macro fargs-at @txt]<br/>[[if [empty [after \@ @txt]] ignore textarea-mini] [after \@ @txt]][/macro]
 [macro fargs-input @txt][fargs-at @txt][fargs-dollar @txt][/macro]
 [macro f-li-input $fun @txt][li <form method='get' action='/$fun'> /$fun [fargs /$fun] [map fargs-input [fargs /$fun]] [submit $fun] </form>][/macro]
+
+[-- authentication/login --]
+[macro auth-salt]ThisIsNotTheSaltYou'reLookingFor[/macro]
+[macro auth-hash $user $pass][substr -17 -16 [encrypt/AuthHash $pass [auth-salt] $user]][/macro]
+[macro auth-no-user $field $user]<font color='red'>No such user $user</font>[/macro]
+[macro auth-ok $user $pass][equal [first [data-auth-$user] #NOSUCHUSER] [auth-hash $user $pass]][/macro]
+[macro auth-set-cookie $field $user][set-cookie user $user][set-cookie auth [data cookie-auth-$user [auth-hash [uuid]]]][/macro]
+
+[macro /login][form /login-auth User: [input user] Password: [input pass] [submit login]][/macro]
+[macro /login-auth $user $pass][[if [auth-ok $user $pass] auth-set-cookie auth-no-user] user $user][/macro]
+[macro /auth-add-user $user $pass $newuser $newpass][if [auth-ok $user $pass] [data auth-$newuser [auth-hash $newuser $newpass]]][/macro]
 
 [-- The FAIL macro get called when function doesn't exist --]
 [macro FAIL $id @params]<font color=red>%%(FAIL:$id @params)%%</font>[/macro]
@@ -112,15 +127,15 @@
 
 [macro /wiki $id][sys-header [link /wiki/main Wiki] / $id]<button style='float:right'>[link /edit/$id edit]</button><br><div style='margin-left:50px'>[wiki-markup [wiki-data [first $id main]]]</div>[vspace 60px][footer [wiki-list]][/macro]
 [macro /edit $id][wiki-edit [first $id main]][/macro]
-[macro /save $id @text][sys-header Save Wiki / $id]<[h2 previous][data-wiki-$id]<h2>saved</h2>[data wiki-$id @text]<hr noshade><b>Hopefully saved...[link /wiki/$id (view it)]</b>[/macro]
+[macro /save $id @text][sys-header Save Wiki / $id][h2 previous][data-wiki-$id]<h2>saved</h2>[data wiki-$id @text]<hr noshade><b>Hopefully saved...[link /wiki/$id (view it)]</b>[/macro]
 [macro /format $id @txt][wiki-markup @txt][/macro]
 
 [macro f-li-nk $fun @txt][li [link /$fun $fun @txt]][/macro]
 [macro /list][sys-header List Data][map f-li-nk [datas]][footer][/macro]
 
 [-- demo --]
-[macro /input]Your name: [form /name <input name=’name’ type=isindex>][/macro]
-[macro /name @name]Hello @name![/macro]
+[macro /demo]Your name: <form method='post' xenctype='multipart/form-data' action='/demo-name'>[submit send][input foo bar][input fie fum]</form>[/macro]
+[macro /demo-name @name]Hello @name![/macro]
 
 [-- routing --]
 [macro route-add $id $time $url @data][data data-route-$id $id $time $url @data][/macro]
@@ -148,10 +163,12 @@
 
 [-- <<< end of standard lib --]
 
-[-- user updates -- ]
-
 [macro data-wiki-main]This is the main[/macro]
 [macro data-wiki-fish]I don't like fish![/macro]
 [macro data-wiki-wiki]==Welcome to the MagniOS wiki!==\nThis wiki is rather small, with meager features.\nHowever, it's free and easy to change!\n\nIt's built in a simple text-substitution language called {{JML}} running a simple cloud operating system.\n[/macro]
 [macro data-wiki-markup]= Header =\nHeaders start and end with one or more equal sign, __bold__ surrounded by two underscores, //italic// by two slashes, \n\n== Second level header ==\n\nAnd to make a list:\n- your put each\n- item\n- where, each line just starts with a dash\n\n=== Third level ===\n\nparagraphs are delimited by two empty lines\n\n\nhere is the second.\n\n<pre>\nPre\n  formatted\n  code\n    is\n  just\n  written\n  with\nthe html pre-tag\n</pre>\n\nAfter it's back to normal[/macro 0 2016-12-19T04:50:51Z  ]
 [macro data-wiki-main]This is the main page of {{MagniOS}} {{wiki}} it's formatted with a {{markup}}.[/macro 1 2016-12-19T05:44:48Z  ]
+
+[-- user updates -- ]
+
+[macro data-auth-jsk]9EA620342FF94BC4[/macro]

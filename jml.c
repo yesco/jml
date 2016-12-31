@@ -42,9 +42,6 @@ char* out = NULL;
 char* to = NULL;
 char* end = NULL;
 
-// consider using UUID/GUID random generator for unique ID
-// - https://github.com/marvinroger/ESP8266TrueRandom
-
 //#define free(x) ({ unsigned _x = (unsigned) x; printf("\n%d:FREE %x\n", __LINE__, _x); /*free(x); */})
 
 // TODO: two layers of global pointers... Hmmm. how to cleanup?
@@ -628,6 +625,17 @@ void funsubst(Out out, char* funname, char* args) {
             skipspace(&args);
         }
         *d = 0;
+    } else if (!strcmp(funname, "join")) {
+        char* delim = next();
+        char* val = next();
+        while (val && *val) {
+            out(-1, 0, val);
+            val = next();
+            if (!val || !*val) break;
+            out(-1, 0, delim);
+        }
+        out(-1, 0, val);
+        return;
     } else if (!strncmp(funname, "split", 5)) {
         char* x = args;
         char* fun = !strcmp(funname, "split-do") ? next() : NULL;
@@ -659,6 +667,26 @@ void funsubst(Out out, char* funname, char* args) {
         if (len < 0) len = 0;
         *(s+len) = 0;
         rest = NULL;
+    } else if (!strcmp(funname, "uuid")) {
+        // TODO: consider using UUID/GUID random generator for unique ID
+        // - https://github.com/marvinroger/ESP8266TrueRandom
+        // This is modified from - http://stackoverflow.com/questions/7399069/how-to-generate-a-guid-in-c
+        srand(clock());
+        char GUID[40];
+        int t = 0;
+        char *tmpl = "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx";
+        char *hex = "0123456789ABCDEF-";
+        char* p = tmpl;
+        while (*p) {
+            int r = rand () % 16;
+            switch (*p) {
+            case 'x' : out(1, hex[r], NULL); break;
+            case 'y' : out(1, hex[r & 0x03 | 0x08], NULL); break;
+            default  : out(1, *p, NULL); break;
+            }
+            p++;
+        }
+        return;
     } else if (!strcmp(funname, "decode")) {
         // TODO: add matching encode?
         char* x = s = args;
@@ -1055,12 +1083,41 @@ char* freadline(FILE* f) {
     return ln;
 }
 
+#define CONTENT_TYPE_MULTI "Content-Type: multipart/form-data"
+#define COOKIE "Cookie:"
+
+char* jmlheader_cookie = NULL;
+
 static void jmlheader(char* buff, char* method, char* path) {
-    //printf("HEADER.ignored: %s\n", buff);
+    // TODO: extract encoding type andn handle multipart/form-data (for file upload...)
+    if (buff && strncmp(buff, CONTENT_TYPE_MULTI, strlen(CONTENT_TYPE_MULTI)) == 0) {
+        fprintf(stderr, "\n%% HEADER.cannot_parse.TODO: %s\n", buff);
+    } else if (buff && strncmp(buff, COOKIE, strlen(COOKIE)) == 0) { 
+        // https://tools.ietf.org/html/rfc6265
+        if (jmlheader_cookie) {
+            free(jmlheader_cookie);
+            jmlheader_cookie = NULL;
+        }
+        jmlheader_cookie = strdup(buff);
+        fprintf(stderr, "\n%% HEADER.cookie: %s\n", buff);
+    } else {
+        // fprintf(stderr, "\n%% HEADER.ignored: %s\n", buff);
+    }
 }
 
+char* jmlbody_store = NULL;
+
 static void jmlbody(char* buff, char* method, char* path) {
-    //printf("BODY.ignored: %s\n", buff);
+    if (buff && strcmp(method, "POST") == 0) {
+        //printf("BODY: %s\n", buff);
+        if (jmlbody_store) {
+            free(jmlbody_store);
+            jmlbody_store = NULL;
+        }
+        jmlbody_store = strdup(buff);
+    } else {
+        //printf("BODY.ignored: %s\n", buff);
+    }
 }
 
 int doexit = 0;
@@ -1076,6 +1133,8 @@ static void jmlresponse(int req, char* method, char* path) {
 
     // args will point to data after '?' or ' '
     char* args = strchr(path, '?');
+    
+    if (strcmp(method, "POST") == 0 && jmlbody_store) args = jmlbody_store;
 
     if (!args) args = strchr(path, ' ');
     if (!args) args = strchr(path+1, '/');
@@ -1151,6 +1210,17 @@ static void jmlresponse(int req, char* method, char* path) {
 
         char ch = c;
         return write(req, &ch, 1);
+    }
+
+    // Cleanup state
+    // TODO: make this more safe by move to init routine?
+    if (jmlbody_store) {
+        free(jmlbody_store);
+        jmlbody_store = NULL;
+    }
+    if (jmlheader_cookie) {
+        free(jmlheader_cookie);
+        jmlheader_cookie = NULL;
     }
 
     // make a copy
