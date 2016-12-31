@@ -73,6 +73,8 @@
 [macro footer @html]<footer class='foothead' style='height:100%'><br/>@html</footer></body></html>[/macro]
 
 [-- system info --]
+[macro scs-from-parts $year $month $day $hour $minute $second][+ $second [* 60 [+ $minute [* 60 [+ $hour [* 24 [+ $day [* 31 [+ $month [* 12 $year]]]]]]]]]][/macro]
+[macro scs $time][match-do scs-from-parts (....)-(..)-(..)T(..):(..):(..)Z $time][/macro]
 [macro /about][link https://github.com/yesco/jml <span style='font-size:18px; font-weight:bold; color:gold;'>jML</span> - Micro Unikernel (C) 2016 jsk\@yesco.org][/macro]
 [macro help]<dl>\n[dt Math   :][dd inc dec - / % > < >= <= = != + * (iota FROM TO STEP)]\n[dt String :][dd empty equal cmp lower upper after before concat (split USING TEXT) (split-do FUN USING TEXT)]\n[dt Regexp: ][dd (match REGEXP TEXT) (match-do FUN REGEXP TEXT) # ^ab(c*).(x.*)y\$]\n[dt X/HTML :][dd (xml NAME TEXT) decode encrypt encrypt-eval decrypt decrypt-eval]\n[dt List   :][dd length nth (map FUN ...) (filter PRED ...) (filter-do PRED FUN ...)]\n[dt System :][dd time (datas PREFIX) (data ID TEXT) (data-ID) funcs fargs fbody]\n[dt Funcs  :][dd [funcs]]\n</dt>[/macro]
 [macro /favicon.ico][-- make it shut up!][/macro]
