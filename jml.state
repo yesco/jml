@@ -93,6 +93,7 @@
 [macro auth-hash $user $pass][substr -17 -16 [encrypt/AuthHash $pass [auth-salt] $user]][/macro]
 [macro auth-no-user $field $user]<font color='red'>No such user $user</font>[/macro]
 [macro auth-ok $user $pass][equal [first [data-auth-$user] #NOSUCHUSER] [auth-hash $user $pass]][/macro]
+[-- TODO: need to have a way to expire this cookies, at each start we could seed a uuid and change every NN minutes --]
 [macro auth-set-cookie $field $user][set-cookie user $user][set-cookie auth [data cookie-auth-$user [auth-hash [uuid]]]][/macro]
 
 [macro /login][form /login-auth User: [input user] Password: [input pass] [submit login]][/macro]
@@ -166,8 +167,8 @@
 [macro data-wiki-main]This is the main[/macro]
 [macro data-wiki-fish]I don't like fish![/macro]
 [macro data-wiki-wiki]==Welcome to the MagniOS wiki!==\nThis wiki is rather small, with meager features.\nHowever, it's free and easy to change!\n\nIt's built in a simple text-substitution language called {{JML}} running a simple cloud operating system.\n[/macro]
-[macro data-wiki-markup]= Header =\nHeaders start and end with one or more equal sign, __bold__ surrounded by two underscores, //italic// by two slashes, \n\n== Second level header ==\n\nAnd to make a list:\n- your put each\n- item\n- where, each line just starts with a dash\n\n=== Third level ===\n\nparagraphs are delimited by two empty lines\n\n\nhere is the second.\n\n<pre>\nPre\n  formatted\n  code\n    is\n  just\n  written\n  with\nthe html pre-tag\n</pre>\n\nAfter it's back to normal[/macro 0 2016-12-19T04:50:51Z  ]
-[macro data-wiki-main]This is the main page of {{MagniOS}} {{wiki}} it's formatted with a {{markup}}.[/macro 1 2016-12-19T05:44:48Z  ]
+[macro data-wiki-markup]= Header =\nHeaders start and end with one or more equal sign, __bold__ surrounded by two underscores, //italic// by two slashes, \n\n== Second level header ==\n\nAnd to make a list:\n- your put each\n- item\n- where, each line just starts with a dash\n\n=== Third level ===\n\nparagraphs are delimited by two empty lines\n\n\nhere is the second.\n\n<pre>\nPre\n  formatted\n  code\n    is\n  just\n  written\n  with\nthe html pre-tag\n</pre>\n\nAfter it's back to normal[/macro 1 2016-12-19T04:50:51Z  ]
+[macro data-wiki-main]This is the main page of {{MagniOS}} {{wiki}} it's formatted with a {{markup}}.[/macro 2 2016-12-19T05:44:48Z  ]
 
 [-- user updates -- ]
 

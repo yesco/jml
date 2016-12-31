@@ -125,29 +125,26 @@ typedef struct FunDef {
     char* name;
     char* args;
     char* body;
+    char* time;
+    char* user;
+    int logpos;
 } FunDef;
 
 FunDef functions[SIZE] = {0};
 int functions_count = 0;
-int last_logpos = -1;
+int last_logpos = 0;
 
 FILE* jml_state = NULL;
 char* jml_state_name = NULL;
 char* jml_state_url = NULL;
 
 void fprintFun(FILE* f, int i) {
-    time_t now;
-    time(&now);
-    char iso[sizeof "2011-10-08T07:07:09Z"];
-    strftime(iso, sizeof iso, "%FT%TZ", gmtime(&now));
-
     FunDef *fun = &functions[i];
     
     // TODO: fill in values?
     char* user = "";
     char* comment = "";
     
-    last_logpos++;
     // TODO: test for faiure
     int r = 1;
     if (r > 0) r = fprintf(f, "[macro %s%s%s]", fun->name, strlen(fun->args) ? " " : "", fun->args);
@@ -160,7 +157,7 @@ void fprintFun(FILE* f, int i) {
             else fputc(c, f);
         }
     }
-    if (r > 0) r = fprintf(f, "[/macro %d %s %s %s]\n", last_logpos, iso, user, comment);
+    if (r > 0) r = fprintf(f, "[/macro %d %s %s %s]\n", fun->logpos, fun->time, user, comment);
 
     if (r <= 0) { fprintf(stderr, "\n%%Writing function %s at position %d failed\n", fun->name, i); exit(77); }
     fflush(f);
@@ -175,15 +172,24 @@ void fprintAllFuns(FILE* f) {
 }
 
 // TODO: how to handle closures/RAM and GC?
-void fundef(char* funname, char* args, char* body) {
+void fundef(char* funname, char* args, char* body, char* crtime, int logpos, char* user) {
     //printf("\nFUNDEF: %s[%s]>>>%s<<<\n", funname, args, body);
     if (functions_count > SIZE) { fprintf(stderr, "\n%%OUT OF FUNCTIONS!\n"); exit(1); }
     int i = functions_count;
     FunDef *f = &functions[functions_count++];
+
+    char iso[sizeof "2011-10-08T07:07:09Z"];
+    time_t now;
+    time(&now);
+    strftime(iso, sizeof iso, "%FT%TZ", gmtime(&now));
+
     // take a copy as the data comes from transient current state of program
     f->name = strdup(funname);
     f->args = strdup(args);
     f->body = strdup(body);
+    f->time = crtime ? strdup(crtime) : jml_state ? strdup(iso) : NULL;
+    f->logpos = jml_state ? ++last_logpos : logpos;
+    f->user = user ? strdup(user) : NULL; // TODO: hashstrings?
 
     if (jml_state) fprintFun(jml_state, i);
 }
@@ -306,16 +312,18 @@ void removefuns(char* s) {
         char* end = strstr(body, "[/macro");
         if (!end) { fprintf(stderr, "\n%%ERROR: macro not terminated: %s%s]%s\n", p,args,body); exit(3); }
         *end = 0; // terminate body
-        fundef(name, args, body);
 
         // process end of [/macro ISO LOGPOS USER COMMENT]
         end += strlen("[/macro");
         char* endend = strstr(end, "]");
         if (!endend) { fprintf(stderr, "\n%%ERROR: [/macro not terminated with ]:%s", p); exit(4); }
         char* lp = strtok(end, " ]\n");
+        int logpos = -1;
         if (lp) {
-            int logpos = atoi(lp);
-            if (logpos == last_logpos+1) {
+            logpos = atoi(lp);
+            if (last_logpos == 0 && logpos == 1) {
+                last_logpos = logpos;
+            } else if (logpos == last_logpos+1) {
                 last_logpos = logpos;
             } else if (logpos > last_logpos) {
                 last_logpos = logpos;
@@ -331,6 +339,9 @@ void removefuns(char* s) {
 
         char* user = strtok(NULL, " ]\n");
         char* comment = user ? user + strlen(user) + 1 : NULL;
+
+        fundef(name, args, body, tm, logpos, user);
+
         *end = 0;
         //fprintf(stderr, "\n[LOG >%s< >%s< >%s< >%s<]\n", lp, tm, user, comment);
                     
@@ -816,7 +827,7 @@ void funsubst(Out out, char* funname, char* args) {
         name[0] = 0;
         strcat(name, "data-");
         strcat(name, id);
-        fundef(name, "", data);
+        fundef(name, "", data, NULL, 0, NULL);
         s = data;
     } else if (!strncmp(funname, "eval/", 5)) { // safe eval!
         char* pattern = funname + 5;
@@ -890,7 +901,7 @@ void funsubst(Out out, char* funname, char* args) {
         name[0] = 0;
         strcat(name, "message-");
         strcat(name, id);
-        fundef(name, "", data);
+        fundef(name, "", data, NULL, 0, NULL);
         // TOOD: send message, lol
         s = data;
     } else if (!strcmp(funname, "funcs")) {
@@ -929,6 +940,11 @@ void funsubst(Out out, char* funname, char* args) {
             b++;
         }
         return;
+    } else if (!strcmp(funname, "ftime")) {
+        FunDef* f = findfun(next());
+        if (!f || !f->time) return;
+        out(-1, 0, f->time);
+        return;        
     } else if (!strcmp(funname, "time")) {
         time_t now;
         time(&now);
@@ -1242,7 +1258,7 @@ int putstdout(int c) {
 }
 
 int loadfile(FILE* f) {
-    last_logpos = -1; // this is "defined" per file
+    last_logpos = 0; // this is "defined" per file
     verbose--; // make it somewhat more silent during startup
     while (f && !feof(f)) {
         char* line = freadline(f);
