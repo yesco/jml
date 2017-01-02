@@ -457,6 +457,7 @@ void macro_subst(Out out, FunDef* f, char* args) {
     return;
 } 
 
+char* jmlheader_cookie = NULL;
 
 // At the current position in outstream get the body of funname
 // and replace the actual arguments into positions of formals.
@@ -904,6 +905,19 @@ void funsubst(Out out, char* funname, char* args) {
         fundef(name, "", data, NULL, 0, NULL);
         // TOOD: send message, lol
         s = data;
+    } else if (!strcmp(funname, "cookie")) {
+        // TODO: how to make functional? infuse at "webcall resolution level"
+        char* want = next();
+        char* p = jmlheader_cookie;
+        char* name = strtok(p, " =");
+        while (name) {
+            char* val = strtok(NULL, "; ");
+            if (!val) break;
+            //printf("\n%% want>%s< name>%s< val>%s<\n", want, name, val);
+            if (strcmp(want, name) == 0) out(-1, 0, val);
+            name = strtok(NULL, " =");
+        }
+        return;
     } else if (!strcmp(funname, "funcs")) {
         char* prefix = next(); // optional
         unsigned char* bigfix = next(); // optional
@@ -1102,26 +1116,32 @@ char* freadline(FILE* f) {
 #define CONTENT_TYPE_MULTI "Content-Type: multipart/form-data"
 #define COOKIE "Cookie:"
 
-char* jmlheader_cookie = NULL;
+char* jmlbody_store = NULL;
 
 static void jmlheader(char* buff, char* method, char* path) {
+    // Init on new connection
+    if (!buff && !method && !path) {
+        if (jmlheader_cookie) {
+            free(jmlheader_cookie);
+            jmlheader_cookie = NULL;
+        }
+        if (jmlbody_store) {
+            free(jmlbody_store);
+            jmlbody_store = NULL;
+        }
+    }
+
     // TODO: extract encoding type andn handle multipart/form-data (for file upload...)
     if (buff && strncmp(buff, CONTENT_TYPE_MULTI, strlen(CONTENT_TYPE_MULTI)) == 0) {
         fprintf(stderr, "\n%% HEADER.cannot_parse.TODO: %s\n", buff);
     } else if (buff && strncmp(buff, COOKIE, strlen(COOKIE)) == 0) { 
         // https://tools.ietf.org/html/rfc6265
-        if (jmlheader_cookie) {
-            free(jmlheader_cookie);
-            jmlheader_cookie = NULL;
-        }
-        jmlheader_cookie = strdup(buff);
+        jmlheader_cookie = strdup(buff + strlen(COOKIE));
         fprintf(stderr, "\n%% HEADER.cookie: %s\n", buff);
     } else {
         // fprintf(stderr, "\n%% HEADER.ignored: %s\n", buff);
     }
 }
-
-char* jmlbody_store = NULL;
 
 static void jmlbody(char* buff, char* method, char* path) {
     if (buff && strcmp(method, "POST") == 0) {
@@ -1234,10 +1254,7 @@ static void jmlresponse(int req, char* method, char* path) {
         free(jmlbody_store);
         jmlbody_store = NULL;
     }
-    if (jmlheader_cookie) {
-        free(jmlheader_cookie);
-        jmlheader_cookie = NULL;
-    }
+    // Not cleaning out jmlheader_cookie
 
     // make a copy
     char* line = strdup(out);

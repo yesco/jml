@@ -97,6 +97,7 @@ int httpd_next(int s, httpd_header emit_header, httpd_body emit_body, httpd_resp
     char *path = strdup(strtok(NULL, " "));
 
     // -- process headers
+    if (emit_header) emit_header(NULL, NULL, NULL);
     int expectedsize = -1;
     while (fdgetline(&buffer, &len, req) > 0) {
         if (emit_header) emit_header(buffer, method, path);
