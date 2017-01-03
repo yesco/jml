@@ -147,11 +147,11 @@
 [macro /list][sys-header List Data][map f-li-nk [datas]][footer][/macro]
 
 [-- chat --]
-[macro fuser]Peter[/macro]
-[macro chat-display $id][li [b [fuser $id]] [hhmm [ftime $id]]<br/>[$id]<br/><br/>][/macro]
+[macro chat-user $id][match :(.*): $id][/macro]
+[macro chat-display $id][li [b [chat-user $id]] [hhmm [ftime $id]]<br/>[$id]<br/><br/>][/macro]
 [macro chat-list $chan]<ul>[map chat-display [datas chat-$chan]]</ul>[/macro]
-[macro /chat-msg $chan @msg][/chat $chan [ignore [data chat-$chan-[scs [time]] @msg]]][/macro]
-[macro chat-channel $chan][sys-header [button-active /chat Chat] / $chan][chat-list $chan]<ul>[form /chat-msg [hidden chan $chan][isindex You Message at #$chan]]</ul>[footer][/macro]
+[macro /chat-msg $chan @msg][/chat $chan [ignore [data chat-$chan-[scs [time]]:[cookie user]: @msg]]][/macro]
+[macro chat-channel $chan][sys-header [button-active /chat Chat] / $chan][chat-list $chan]<ul>[form /chat-msg [hidden chan $chan][b You:] <input name="msg" placeholder="Message at $chan"/> [submit send]]</ul>[footer][/macro]
 [macro /chat $chan][chat-channel [first $chan general]][/macro]
 
 [-- demo --]
@@ -193,8 +193,9 @@
 
 [macro data-auth-jsk]9EA620342FF94BC4[/macro]
 
-[macro data-chat-general-406243238]Hello - is anyone there?[/macro 3 2016-12-31T22:23:42Z]
-[macro data-chat-general-406243300]Yes, but only us I think![/macro 4 2016-12-31T22:25:42Z]
-[macro data-chat-general-406248000]Not, true - anymore...[/macro 5 2016-12-31T22:32:42Z]
+[macro data-chat-general-406243238:Peter:]Hello - is anyone there?[/macro 3 2016-12-31T22:23:42Z]
+[macro data-chat-general-406243300:Osquar:]Yes, but only us I think![/macro 4 2016-12-31T22:25:42Z]
+[macro data-chat-general-406248000:Tom:]Not, true - anymore...[/macro 5 2016-12-31T22:32:42Z]
 [macro data-wiki-MagniOS]MagniOS is a "Micro" Unikernel, implemented in C that implements an interpreter for a "canonical"\nlambda string language called {{JML}}. This is used to manage code (which is) data and a messaging system.\nVarious components are implemented such as {{CHORD}} overlay routing, as well as a content-hash-based\nkey-value store. Read more at <a href="https://github.com/yesco/jml">githbu.com/yesco/jml</a>.\n\n"Unikernels are specialised, single-address-space machine images constructed by using library operating systems."\n(<a href="https://en.wikipedia.org/wiki/Unikernel">ref</a>).\n\n\n[/macro 6 2017-01-01T01:27:36Z  ]
 [macro data-cookie-auth-jsk][/macro 7 2017-01-02T02:57:00Z  ]
+[macro data-chat-general-406426362:jsk:]foobar[/macro 7 2017-01-03T01:16:42Z  ]
