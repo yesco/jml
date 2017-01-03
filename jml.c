@@ -911,7 +911,7 @@ void funsubst(Out out, char* funname, char* args) {
         char* p = jmlheader_cookie;
         char* name = strtok(p, " =");
         while (name) {
-            char* val = strtok(NULL, "; ");
+            char* val = strtok(NULL, " ;"); // space is converted to %20 I think
             if (!val) break;
             //printf("\n%% want>%s< name>%s< val>%s<\n", want, name, val);
             if (strcmp(want, name) == 0) out(-1, 0, val);
