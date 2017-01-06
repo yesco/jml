@@ -74,11 +74,14 @@
 [macro textarea $field @txt]<label><b>$field:</b><br/> <textarea id='$field' cols=60 rows=12 name='$field' resize='none' style='white-space: pre;overflow: hidden; width:100%'>@txt</textarea> </label><script>(function(){var e = document.getElementById('$field'); e.onfocus = e.onkeyup=function() {  var sh = this.scrollHeight, sw = this.scrollWidth;  this.style.height = sh < 50 ? "50px" : sh+"px";  this.style.width = "100%" : sw+"px";};})();</script>[/macro]
 
 [-- highlevel html --]
+[macro show-user-login][link /login login][/macro]
+[macro show-user]<div style='float:right;color:lime;font-weight:bold;'>[[if [empty [cookie user]] show-user-login identity] <span style='color:white'>[cookie user] foobar</span>]</div>[/macro]
 [macro default-style]<style>html { background:#242729; width: 90%; overflow-x: hidden; } body { width: 100%; background: white; margin: 0px; padding-right: 30px; padding-left: 50px; } .button, button { background:#0000cc; color:white; margin: 5px; border-radius:5px; border: 0px solid black; padding: 8px; padding-left: 15px; padding-right: 15px;} input.button, button a, header a { color:white; text-decoration: none; font-weight:bold} .foothead { margin-left: -50px; background:#242729; color:white; width:100%; min-height: 150px; padding-left:15px; padding-right: 100px; padding-bottom: 8px; margin-bottom: 30px; } header a, footer a { color: #9fa6ad; font-size: 10pt; }</style>[/macro]
 [macro menubar]<div style='float:right'>[button-menu /wiki/main Wiki][button-menu /api API][button-menu /chat Chat]</div>[/macro]
-[macro header @title]<html><head><title>[unhtml @title]</title>[default-style]</head><body><header class='foothead' style='min-height:20px; padding-top: 6px;'>[/about]<div style='float:right;color:lime;font-weight:bold;'>User: [cookie user]</div></header>[menubar]<h1 style='font-family:ariel;border-bottom:2px solid black;'><a href='/'>/</a> @title</h1>[/macro]
+[macro header @title]<html><head><title>[unhtml @title]</title>[default-style]</head><body><header class='foothead' style='min-height:20px; padding-top: 6px;'>[/about][show-user]</header>[menubar]<h1 style='font-family:ariel;border-bottom:2px solid black;'><a href='/'>/</a> @title</h1>[/macro]
 [macro sys-header @title][header @title][/macro]
 [macro footer @html]<footer class='foothead' style='height:100%'><br/>@html</footer></body></html>[/macro]
+[macro error @html]<header class='foothead' style='width:110%;background:red;color:black;font-weight:bold;min-height:0px;padding:20px;font-size:18px;'>@html</header>[/macro]
 
 [-- system info --]
 [macro scs-from-parts $year $month $day $hour $minute $second][+ $second [* 60 [+ $minute [* 60 [+ $hour [* 24 [+ $day [* 31 [+ $month [* 12 $year]]]]]]]]]][/macro]
@@ -103,12 +106,12 @@
 [-- authentication/login --]
 [macro auth-salt]ThisIsNotTheSaltYou'reLookingFor[/macro]
 [macro auth-hash $user $pass][substr -17 -16 [encrypt/AuthHash $pass [auth-salt] $user]][/macro]
-[macro auth-no-user $field $user]<font color='red'>No such user $user</font>[/macro]
+[macro auth-no-user $field $user][error No such user $user][/login][/macro]
 [macro auth-ok $user $pass][equal [first [data-auth-$user] #NOSUCHUSER] [auth-hash $user $pass]][/macro]
 [-- TODO: need to have a way to expire this cookies, at each start we could seed a uuid and change every NN minutes --]
 [macro auth-set-cookie $field $user][set-cookie user $user][set-cookie auth [data cookie-auth-$user [auth-hash [uuid]]]][/macro]
 
-[macro /login][form /login-auth User: [input user] Password: [input pass] [submit login]][/macro]
+[macro /login][sys-header [button-active /login login]][form /login-auth [input user]<br>[input pass] [submit login]][footer][/macro]
 [macro /login-auth $user $pass][[if [auth-ok $user $pass] auth-set-cookie auth-no-user] user $user][/macro]
 [macro /auth-add-user $user $pass $newuser $newpass][if [auth-ok $user $pass] [data auth-$newuser [auth-hash $newuser $newpass]]][/macro]
 
@@ -198,4 +201,3 @@
 [macro data-chat-general-406248000:Tom:]Not, true - anymore...[/macro 5 2016-12-31T22:32:42Z]
 [macro data-wiki-MagniOS]MagniOS is a "Micro" Unikernel, implemented in C that implements an interpreter for a "canonical"\nlambda string language called {{JML}}. This is used to manage code (which is) data and a messaging system.\nVarious components are implemented such as {{CHORD}} overlay routing, as well as a content-hash-based\nkey-value store. Read more at <a href="https://github.com/yesco/jml">githbu.com/yesco/jml</a>.\n\n"Unikernels are specialised, single-address-space machine images constructed by using library operating systems."\n(<a href="https://en.wikipedia.org/wiki/Unikernel">ref</a>).\n\n\n[/macro 6 2017-01-01T01:27:36Z  ]
 [macro data-cookie-auth-jsk][/macro 7 2017-01-02T02:57:00Z  ]
-[macro data-chat-general-406426362:jsk:]foobar[/macro 7 2017-01-03T01:16:42Z  ]

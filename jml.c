@@ -142,7 +142,6 @@ void fprintFun(FILE* f, int i) {
     FunDef *fun = &functions[i];
     
     // TODO: fill in values?
-    char* user = "";
     char* comment = "";
     
     // TODO: test for faiure
@@ -157,7 +156,7 @@ void fprintFun(FILE* f, int i) {
             else fputc(c, f);
         }
     }
-    if (r > 0) r = fprintf(f, "[/macro %d %s %s %s]\n", fun->logpos, fun->time, user, comment);
+    if (r > 0) r = fprintf(f, "[/macro %d %s %s %s]\n", fun->logpos, fun->time, fun->user ? fun->user : "", comment);
 
     if (r <= 0) { fprintf(stderr, "\n%%Writing function %s at position %d failed\n", fun->name, i); exit(77); }
     fflush(f);
@@ -457,7 +456,12 @@ void macro_subst(Out out, FunDef* f, char* args) {
     return;
 } 
 
+#define CONTENT_TYPE_MULTI "Content-Type: multipart/form-data"
+#define COOKIE "Cookie:"
+
+char* jmlbody_store = NULL;
 char* jmlheader_cookie = NULL;
+char* jml_user = NULL;
 
 // At the current position in outstream get the body of funname
 // and replace the actual arguments into positions of formals.
@@ -508,6 +512,7 @@ void funsubst(Out out, char* funname, char* args) {
     int r = -4711;
     char* s = NULL;
     FunDef *f = findfun(funname);
+    //printf("%% funcall=%s args=%s >%s<\n", funname, args, jmlheader_cookie);
     if (f) return macro_subst(out, f, args);
     else if (!strcmp(funname, "inc")) r = num() + 1;
     else if (!strcmp(funname, "dec")) r = num() - 1;
@@ -828,7 +833,7 @@ void funsubst(Out out, char* funname, char* args) {
         name[0] = 0;
         strcat(name, "data-");
         strcat(name, id);
-        fundef(name, "", data, NULL, 0, NULL);
+        fundef(name, "", data, NULL, 0, jml_user);
         s = data;
     } else if (!strncmp(funname, "eval/", 5)) { // safe eval!
         char* pattern = funname + 5;
@@ -902,18 +907,20 @@ void funsubst(Out out, char* funname, char* args) {
         name[0] = 0;
         strcat(name, "message-");
         strcat(name, id);
-        fundef(name, "", data, NULL, 0, NULL);
+        fundef(name, "", data, NULL, 0, jml_user);
         // TOOD: send message, lol
         s = data;
     } else if (!strcmp(funname, "cookie")) {
         // TODO: how to make functional? infuse at "webcall resolution level"
         char* want = next();
         char* p = jmlheader_cookie;
-        char* name = strtok(p, " =");
+        if (!want || !p) return;
+        char* name = strchr(p, ' ');
+        if (!name) name = strchr(p, '=');
         while (name) {
             char* val = strtok(NULL, " ;"); // space is converted to %20 I think
             if (!val) break;
-            //printf("\n%% want>%s< name>%s< val>%s<\n", want, name, val);
+            // printf("\n%% want>%s< name>%s< val>%s<\n", want, name, val);
             if (strcmp(want, name) == 0) out(-1, 0, val);
             name = strtok(NULL, " =");
         }
@@ -1113,11 +1120,6 @@ char* freadline(FILE* f) {
     return ln;
 }
 
-#define CONTENT_TYPE_MULTI "Content-Type: multipart/form-data"
-#define COOKIE "Cookie:"
-
-char* jmlbody_store = NULL;
-
 static void jmlheader(char* buff, char* method, char* path) {
     // Init on new connection
     if (!buff && !method && !path) {
@@ -1129,6 +1131,10 @@ static void jmlheader(char* buff, char* method, char* path) {
             free(jmlbody_store);
             jmlbody_store = NULL;
         }
+        if (jml_user) {
+            free(jml_user);
+            jml_user = NULL;
+        }
     }
 
     // TODO: extract encoding type andn handle multipart/form-data (for file upload...)
@@ -1137,6 +1143,14 @@ static void jmlheader(char* buff, char* method, char* path) {
     } else if (buff && strncmp(buff, COOKIE, strlen(COOKIE)) == 0) { 
         // https://tools.ietf.org/html/rfc6265
         jmlheader_cookie = strdup(buff + strlen(COOKIE));
+        char* user = strstr(jmlheader_cookie, "user=");
+        if (user) {
+            user += 5;
+            char* end = strchr(user, ' ');
+            if (!end) strchr(user, ';');
+            if (!end) end = user + strlen(user);
+            jml_user = strndup(user, end-user);
+        }
         fprintf(stderr, "\n%% HEADER.cookie: %s\n", buff);
     } else {
         // fprintf(stderr, "\n%% HEADER.ignored: %s\n", buff);

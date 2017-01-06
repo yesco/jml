@@ -111,7 +111,6 @@ int httpd_next(int s, httpd_header emit_header, httpd_body emit_body, httpd_resp
     }
     if (emit_header) emit_header(NULL, method, path);
 
-    // TODO: handle POST get parameters, also add paramter getter for path
     // http://www.w3.org/Protocols/rfc2616/rfc2616-sec9.html#sec9.5
     // may need to handle different encodings...?
     // http://www.w3.org/Protocols/rfc2616/rfc2616-sec7.html#sec7
