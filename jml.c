@@ -673,7 +673,7 @@ void funsubst(Out out, char* funname, char* args) {
     } else if (!strcmp(funname, "substr")) {
         int start = num();
         int len = num();
-        char l = strlen(rest);
+        int l = strlen(rest);
         if (start > l) return;
         if (start < 0) if (len < 0) len = -len;
         if (start < 0) start = l + start;
@@ -682,6 +682,7 @@ void funsubst(Out out, char* funname, char* args) {
         if (len < 0) len = l + len;
         if (len > l) len = l - start;
         if (len < 0) len = 0;
+        fprintf(stderr, "\n%% substr len=%d", len);
         *(s+len) = 0;
         rest = NULL;
     } else if (!strcmp(funname, "uuid")) {
