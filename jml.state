@@ -107,15 +107,16 @@
 [data jml-uuid-start [uuid]]
 
 [-- authentication/login --]
+[macro auth-set-cookie $field $user][set-cookie user $user][set-cookie auth [data cookie-auth-$user [auth-hash [data-jml-uuid-start]]]][/macro]
 [macro auth-salt]ThisIsNotTheSaltYou'reLookingFor[/macro]
 [macro auth-hash $user $pass][substr -17 -16 [encrypt/AuthHash $pass [auth-salt] $user]][/macro]
 [macro auth-no-user $field $user][error No such user $user][/login][/macro]
 [macro auth-ok $user $pass][equal [first [data-auth-$user] #NOSUCHUSER] [auth-hash $user $pass]][/macro]
 [-- TODO: need to have a way to expire this cookies, at each start we could seed a uuid and change every NN minutes --]
-[macro auth-set-cookie $field $user][set-cookie user $user][set-cookie auth [data cookie-auth-$user [auth-hash [data-jml-uuid-start]]]][/macro]
+[macro auth-logged-in $field $user][auth-set-cookie $field $user][/][/macro]
 
 [macro /login][sys-header [button-active /login login]][form /login-auth [input user]<br>[input pass] [submit login]][footer][/macro]
-[macro /login-auth $user $pass][[if [auth-ok $user $pass] auth-set-cookie auth-no-user] user $user][/macro]
+[macro /login-auth $user $pass][[if [auth-ok $user $pass] auth-logged-in auth-no-user] user $user][/macro]
 [macro /auth-add-user $user $pass $newuser $newpass][if [auth-ok $user $pass] [data auth-$newuser [auth-hash $newuser $newpass]]][/macro]
 
 [-- The FAIL macro get called when function doesn't exist --]
@@ -203,4 +204,7 @@
 [macro data-chat-general-406243300:Osquar:]Yes, but only us I think![/macro 4 2016-12-31T22:25:42Z]
 [macro data-chat-general-406248000:Tom:]Not, true - anymore...[/macro 5 2016-12-31T22:32:42Z]
 [macro data-wiki-MagniOS]MagniOS is a "Micro" Unikernel, implemented in C that implements an interpreter for a "canonical"\nlambda string language called {{JML}}. This is used to manage code (which is) data and a messaging system.\nVarious components are implemented such as {{CHORD}} overlay routing, as well as a content-hash-based\nkey-value store. Read more at <a href="https://github.com/yesco/jml">githbu.com/yesco/jml</a>.\n\n"Unikernels are specialised, single-address-space machine images constructed by using library operating systems."\n(<a href="https://en.wikipedia.org/wiki/Unikernel">ref</a>).\n\n\n[/macro 6 2017-01-01T01:27:36Z  ]
-[macro data-cookie-auth-jsk]A740BDB8EB957D99[/macro 7 2017-01-13T07:46:25Z jsk ]
+[macro data-cookie-auth-jsk]3C5E947B9D7E4E4B[/macro 7 2017-02-12T07:14:34Z jsk ]
+[macro data-cookie-auth-jsk]32587EE8949F31AF[/macro 8 2017-02-12T07:16:56Z jsk ]
+[macro data-cookie-auth-jsk]32587EE8949F31AF[/macro 9 2017-02-12T07:17:04Z jsk; ]
+[macro data-cookie-auth-jsk]32587EE8949F31AF[/macro 10 2017-02-12T07:18:44Z jsk ]
