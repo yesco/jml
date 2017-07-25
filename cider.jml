@@ -6,4 +6,4 @@
 [macro cider-list-rows][cider-row [cider-one]][/macro]
 [macro cider-row @data]<tr><td>[field city @data]</td><td>[field name @data]</td><td>[field cider @data]</td><td>[field address @data]</tr>[/macro]
 [macro cider-one]<entry><city>Hong Kong</city><name>Centre Stage</name><cider>bulmers original big bottle 95hkd 40% off HH till 10pm</cider><email><subject>Centre Stage, bulmers original big bottle 95hkd 40% off HH till 10pm</subject><body><address>Centre Stage<br/>82 Jaffe Rd, Wan Chai, Hong Kong</br><phone>+852 2595 1202</phone></br></br><mapslink>https://goo.gl/maps/t4EB1KN1siz</mapslink></address></body></email></entry>[/macro]
-[macro field $name @xml][match-do bold <$name>(.*)</$name> @xml][/macro]
+[macro field $name @xml][match-do identity <$name>(.*)</$name> @xml][/macro]
