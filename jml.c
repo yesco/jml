@@ -42,9 +42,6 @@ char* out = NULL;
 char* to = NULL;
 char* end = NULL;
 
-// consider using UUID/GUID random generator for unique ID
-// - https://github.com/marvinroger/ESP8266TrueRandom
-
 //#define free(x) ({ unsigned _x = (unsigned) x; printf("\n%d:FREE %x\n", __LINE__, _x); /*free(x); */})
 
 // TODO: two layers of global pointers... Hmmm. how to cleanup?
@@ -59,7 +56,7 @@ static jmlputchartype jmlputchar;
 // if len == 0 actually print c - means no need capture to later process
 // if len == 1 append c
 void myout(int len, char c, char* s) {
-    len = s ? (len > 0 ? len : strlen(s)) : len;
+    len = s ? (len >= 0 ? len : strlen(s)) : len; // TODO: if -1 what???
     // enough space?
     if (!out) {
         int sz = 1024 + ramlast;
@@ -90,7 +87,7 @@ void myout(int len, char c, char* s) {
     }
 
     if (s) {
-        while (*s) myout(1, *s++, NULL);
+        while (*s && len-- > 0) myout(1, *s++, NULL);
     } else if (len == 1) { 
         *to++ = c;
     } else {
@@ -103,23 +100,23 @@ void myout(int len, char c, char* s) {
 // use this when reading from ANY external source (web, file, env variables etc)
 // TODO: How effective is this?
 // TODO: how does \\ handle?
-void safeout(int len, char c, char* s) {
-    myout(len, c, s); return;
+void safeout(int len, char c, char* s, Out xout) {
+    //myout(len, c, s); return; // TODO(jsk): wtf?
     if (len == 1) {
         if (0) ;
-        else if (c == '\"') myout(-1, 0, "&quot;");
-        else if (c == '\'') myout(-1, 0, "&#39;");
-        else if (c == '&') myout(-1, 0, "&amp;");
-        else if (c == '[') myout(-1, 0, "&#91;");
-        else if (c == ']') myout(-1, 0, "&#93;");
-        else myout(1, c, NULL);
-    if (len < 0) {
+        else if (c == '\"') xout(-1, 0, "&quot;");
+        else if (c == '\'') xout(-1, 0, "&#39;");
+        else if (c == '&') xout(-1, 0, "&amp;");
+        else if (c == '[') xout(-1, 0, "&#91;");
+        else if (c == ']') xout(-1, 0, "&#93;");
+        else xout(1, c, NULL);
+    } else if (len < 0) {
         len = strlen(s);
         char c;
-        while (c = *s) safeout(1, *s++, NULL);
-    } else if (len == 0)
+        while (c = *s) safeout(1, *s++, NULL, xout);
+    } else if (len == 0) {
         // nothing safe
-        safeout(0, c, NULL);
+        xout(0, c, NULL);
     }
 }
 
@@ -128,31 +125,40 @@ typedef struct FunDef {
     char* name;
     char* args;
     char* body;
+    char* time;
+    char* user;
+    int logpos;
 } FunDef;
 
 FunDef functions[SIZE] = {0};
 int functions_count = 0;
-int last_logpos = -1;
+int last_logpos = 0;
+
 FILE* jml_state = NULL;
+char* jml_state_name = NULL;
+char* jml_state_url = NULL;
 
 void fprintFun(FILE* f, int i) {
-    time_t now;
-    time(&now);
-    char iso[sizeof "2011-10-08T07:07:09Z"];
-    strftime(iso, sizeof iso, "%FT%TZ", gmtime(&now));
-
     FunDef *fun = &functions[i];
     
     // TODO: fill in values?
-    char* user = "";
     char* comment = "";
     
-    last_logpos++;
     // TODO: test for faiure
-    int r = fprintf(f, "[macro %s%s%s]%s[/macro %d %s %s %s]\n",
-                    fun->name, strlen(fun->args) ? " " : "", fun->args, fun->body,
-                    last_logpos, iso, user, comment);
-    if (r < 0) { fprintf(stderr, "\n%%Writing function %s at position %d failed\n", fun->name, i); exit(77); }
+    int r = 1;
+    if (r > 0) r = fprintf(f, "[macro %s%s%s]", fun->name, strlen(fun->args) ? " " : "", fun->args);
+    if (r > 0) {
+        char* data = fun->body;
+        char c;
+        while (c = *(data++)) {
+            if (c == '\n') fputs("\\n", f);
+            else if (c == '\r') ; // fputs("\\r", f);
+            else fputc(c, f);
+        }
+    }
+    if (r > 0) r = fprintf(f, "[/macro %d %s %s %s]\n", fun->logpos, fun->time, fun->user ? fun->user : "", comment);
+
+    if (r <= 0) { fprintf(stderr, "\n%%Writing function %s at position %d failed\n", fun->name, i); exit(77); }
     fflush(f);
 
     if (verbose >= 0) fprintf(stderr, "{--APPENDED %s to file--}", fun->name);
@@ -165,15 +171,24 @@ void fprintAllFuns(FILE* f) {
 }
 
 // TODO: how to handle closures/RAM and GC?
-void fundef(char* funname, char* args, char* body) {
+void fundef(char* funname, char* args, char* body, char* crtime, int logpos, char* user) {
     //printf("\nFUNDEF: %s[%s]>>>%s<<<\n", funname, args, body);
     if (functions_count > SIZE) { fprintf(stderr, "\n%%OUT OF FUNCTIONS!\n"); exit(1); }
     int i = functions_count;
     FunDef *f = &functions[functions_count++];
+
+    char iso[sizeof "2011-10-08T07:07:09Z"];
+    time_t now;
+    time(&now);
+    strftime(iso, sizeof iso, "%FT%TZ", gmtime(&now));
+
     // take a copy as the data comes from transient current state of program
     f->name = strdup(funname);
     f->args = strdup(args);
     f->body = strdup(body);
+    f->time = crtime ? strdup(crtime) : jml_state ? strdup(iso) : NULL;
+    f->logpos = jml_state ? ++last_logpos : logpos;
+    f->user = user ? strdup(user) : NULL; // TODO: hashstrings?
 
     if (jml_state) fprintFun(jml_state, i);
 }
@@ -191,9 +206,12 @@ FunDef* findfun(char* funname) {
 typedef struct Match {
   char* start;
   char* end;
+  char* endend;
 } Match;
 
-Match match(char *regexp, char *text, char* fun, Out out) {
+// only knows ^ () * . $
+// TODO: + [] ?
+Match match(char *regexp, char *text, char* fun, Out out, int subst, int global) {
   #define MAXLEVELS 10
   Match m[MAXLEVELS] = { 0 };
   
@@ -202,14 +220,18 @@ Match match(char *regexp, char *text, char* fun, Out out) {
   
   /* matchhere: search for regexp at beginning of text */
   int Xmatchhere(char *regexp, char *text, int level) {
+    m[level].endend = text;
+    if (!*text) return !*regexp;
     if (level >= MAXLEVELS) { fprintf(stderr, "\n%%Regexp full %s", regexp); return 0; }
     if (!*regexp) { m[0].end = text; return 1; }
     if (*regexp == '(') { m[++level].start = text; return Xmatchhere(regexp+1, text, level); }
     if (*regexp == ')') { m[level].end = text; return Xmatchhere(regexp+1, text, level); }
     if (regexp[1] == '*') return matchstar(*regexp, regexp+2, text, level);
     if (*regexp == '$' && !regexp[1]) { if (!m[level].end) m[level].end = text; return *text == '\0'; }
-    if (*text && (*regexp == '.' || *regexp == *text))
-      return Xmatchhere(regexp+1, text+1, level);
+    if (*regexp == '\\' && regexp[1] == 'n' && *text == '\n') {
+        return Xmatchhere(regexp+2, text+1, level);
+    }
+    if (*text && (*regexp == '.' || *regexp == *text)) return Xmatchhere(regexp+1, text+1, level);
     return 0;
   }
 
@@ -222,7 +244,11 @@ Match match(char *regexp, char *text, char* fun, Out out) {
   }
 
   int Xmatch(char* regexp, char* text, int level) {
+    if (!text || !*text) return !*regexp;
     if (*regexp == '^') return Xmatchhere(regexp+1, m[level].start = text, level);
+    // TODO: not correct, as we call many times with "global" pretent there is an \n at the beginning
+    if (*regexp == '\\' && regexp[1] == 'n'
+        && Xmatchhere(regexp+2, m[level].start = text, level)) return 1;
     do { /* must look even if string is empty */
       if (Xmatchhere(regexp, m[level].start = text, level)) return 1;
     } while (*text++);
@@ -230,25 +256,37 @@ Match match(char *regexp, char *text, char* fun, Out out) {
   }
 
   matchstar = Xmatchstar;
-  if (Xmatch(regexp, text, 0)) {
-    out(1, ' ', NULL);
+  char* last = text;
+  m[0] = (Match){text, text};
+  while (Xmatch(regexp, text, 0) && global) {
+    if (subst) {
+      char* end = m[0].start;
+      out(end-last, 0, last);
+      last = NULL;
+    } else {
+      out(1, ' ', NULL);
+    }
     out(1, '[', NULL);
     out(-1, 0, fun);
     int i;
     // skip the "all" first match
     for(i = 1; i < MAXLEVELS; i++) {
-       out(1, ' ', NULL);
-       char* s = m[i].start && m[i].end ? strndup(m[i].start, m[i].end - m[i].start) : NULL;
-       if (!s) break;
-       out(-1, 0, s);
-       fprintf(stderr, "   => '%s'./%s/ ... %d >%s<\n", text, regexp, i, s);
+        // TODO: no allocat, just loop print characters?
+        char* s = (m[i].start && m[i].end) ? strndup(m[i].start, m[i].end - m[i].start) : NULL;
+        if (!s) break;
+        out(1, ' ', NULL);
+        out(-1, 0, s);
+        free(s);
+        if (m[i].endend) last = m[i].endend;
+        if (!last && m[i].end) last = m[i].end;
+        // fprintf(stderr, "   => '%s'./%s/ ... %d >%s<\n", text, regexp, i, s);
     }
     out(1, ']', NULL);
-    return m[0];
-  } else {
-    m[0] = (Match){0, 0};
-    return m[0];
+    if (last == text) break;
+    text = last;
   }
+  if (subst) out(-1, 0, m[0].end);
+  //global = 0;
   #undef MAXLEVELS    
 }
 
@@ -258,7 +296,7 @@ void removefuns(char* s) {
     //fprintf(stderr, "\nREMOVEFUNS:%s<<\n", s);
     // remove [macro FUN ARGS]BODY[/macro...] and doing fundef() on them
     char *m = s, *p;
-    if (verbose > 1) fprintf(stderr, "removefuns:%s\n", s);
+    if (verbose > 1) fprintf(stderr, "{{removefuns:%s}}", s);
     while (m = p = strstr(m, "[macro ")) {
         char* name = p + strlen("[macro ");
         char* spc = strchr(name, ' ');
@@ -273,24 +311,36 @@ void removefuns(char* s) {
         char* end = strstr(body, "[/macro");
         if (!end) { fprintf(stderr, "\n%%ERROR: macro not terminated: %s%s]%s\n", p,args,body); exit(3); }
         *end = 0; // terminate body
-        fundef(name, args, body);
 
         // process end of [/macro ISO LOGPOS USER COMMENT]
         end += strlen("[/macro");
         char* endend = strstr(end, "]");
         if (!endend) { fprintf(stderr, "\n%%ERROR: [/macro not terminated with ]:%s", p); exit(4); }
         char* lp = strtok(end, " ]\n");
+        int logpos = -1;
         if (lp) {
-            int logpos = atoi(lp);
-            if (logpos > last_logpos)
+            logpos = atoi(lp);
+            if (last_logpos == 0 && logpos == 1) {
                 last_logpos = logpos;
-            else
-                fprintf(stderr, "\n%%[/macro.error: logpos=%d < last_logpos=%d]", logpos, last_logpos);
+            } else if (logpos == last_logpos+1) {
+                last_logpos = logpos;
+            } else if (logpos > last_logpos) {
+                last_logpos = logpos;
+                // TOOD: inject error message [warning log XXXX] ! (how?)
+                fprintf(stderr, "\n%%[/macro.warning: logpos=%d != last_logpos=%d+1] - log missing/incomplete",
+                    logpos, last_logpos);
+            } else {
+                // TOOD: inject error message [error log XXXX] ! (how?)
+                fprintf(stderr, "\n%%[/macro.error: logpos=%d <= last_logpos=%d]", logpos, last_logpos);
+            }
         }
         char* tm = strtok(NULL, " ]\n");
 
         char* user = strtok(NULL, " ]\n");
         char* comment = user ? user + strlen(user) + 1 : NULL;
+
+        fundef(name, args, body, tm, logpos, user);
+
         *end = 0;
         //fprintf(stderr, "\n[LOG >%s< >%s< >%s< >%s<]\n", lp, tm, user, comment);
                     
@@ -394,7 +444,9 @@ void macro_subst(Out out, FunDef* f, char* args) {
                 out(-1, 0, arga[i]);
                 body += fargalen[i];
             } else {
-                fprintf(stderr, "\n%%Argument: %s not found!\n", strtok(body, " "));
+                // TOOD: this seems to loop forever at problem...
+                fprintf(stderr, "\n%%Argument: can't find argument in '%s'\n", strtok(body, " "));
+                return;
             }
         } else {
             if (c == '\\') out(1, *body++, NULL);
@@ -404,12 +456,18 @@ void macro_subst(Out out, FunDef* f, char* args) {
     return;
 } 
 
+#define CONTENT_TYPE_MULTI "Content-Type: multipart/form-data"
+#define COOKIE "Cookie:"
+
+char* jmlbody_store = NULL;
+char* jmlheader_cookie = NULL;
+char* jml_user = NULL;
 
 // At the current position in outstream get the body of funname
 // and replace the actual arguments into positions of formals.
 void funsubst(Out out, char* funname, char* args) {
-    void skipspace() {
-        while(*args == ' ') args++;
+    void skipspace(char **pos) {
+        while(**pos == ' ') *pos++;
     }
     
     void outspace() {
@@ -454,6 +512,7 @@ void funsubst(Out out, char* funname, char* args) {
     int r = -4711;
     char* s = NULL;
     FunDef *f = findfun(funname);
+    //printf("%% funcall=%s args=%s >%s<\n", funname, args, jmlheader_cookie);
     if (f) return macro_subst(out, f, args);
     else if (!strcmp(funname, "inc")) r = num() + 1;
     else if (!strcmp(funname, "dec")) r = num() - 1;
@@ -559,12 +618,18 @@ void funsubst(Out out, char* funname, char* args) {
         // TODO: name it match-do?
         // TODO: - [match F a(b*)(cd*)e(.*)f acexxxxxfff] => [F c xxxxx] ... b position missing, quote mode?
         // TODO: => [F {} {c} {xxxxx}] ???
-        char* rest = args;
         char* fun = next();
-        rest += strlen(fun) + 1;
         char* regexp = next();
-        rest += strlen(regexp) + 1;
-        match(regexp, rest, fun, out);
+        skipspace(&rest);
+        match(regexp, rest, fun, out, 0, 1);
+        return;
+    } else if (!strcmp(funname, "subst-do")) {
+        // Like match-do but replaces matches
+        char* fun = next();
+        char* regexp = next();
+        if (verbose > 1) fprintf(stderr, "\n%%subst-do fun=%s< regexp=%s<\n", fun, regexp);
+        skipspace(&rest);
+        match(regexp, rest, fun, out, 1, 1);
         return;
     } else if (!strcmp(funname, "concat")) {
         s = args; char* d = args;
@@ -574,9 +639,20 @@ void funsubst(Out out, char* funname, char* args) {
             // read arg (till next unquoted space, or end)
             char last = 0;
             while (*args && (last == '\\' || *args != ' ')) *d++ = last = *args++;
-            skipspace();
+            skipspace(&args);
         }
         *d = 0;
+    } else if (!strcmp(funname, "join")) {
+        char* delim = next();
+        char* val = next();
+        while (val && *val) {
+            out(-1, 0, val);
+            val = next();
+            if (!val || !*val) break;
+            out(-1, 0, delim);
+        }
+        out(-1, 0, val);
+        return;
     } else if (!strncmp(funname, "split", 5)) {
         char* x = args;
         char* fun = !strcmp(funname, "split-do") ? next() : NULL;
@@ -594,12 +670,46 @@ void funsubst(Out out, char* funname, char* args) {
         // output rest
         outfun(fun, x);
         return;
+    } else if (!strcmp(funname, "substr")) {
+        int start = num();
+        int len = num();
+        int l = strlen(rest);
+        if (start > l) return;
+        if (start < 0) if (len < 0) len = -len;
+        if (start < 0) start = l + start;
+        if (start < 0) start = 0;
+        s = rest + start;
+        if (len < 0) len = l + len;
+        if (len > l) len = l - start;
+        if (len < 0) len = 0;
+        fprintf(stderr, "\n%% substr len=%d", len);
+        *(s+len) = 0;
+        rest = NULL;
+    } else if (!strcmp(funname, "uuid")) {
+        // TODO: consider using UUID/GUID random generator for unique ID
+        // - https://github.com/marvinroger/ESP8266TrueRandom
+        // This is modified from - http://stackoverflow.com/questions/7399069/how-to-generate-a-guid-in-c
+        srand(clock());
+        char GUID[40];
+        int t = 0;
+        char *tmpl = "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx";
+        char *hex = "0123456789ABCDEF-";
+        char* p = tmpl;
+        while (*p) {
+            int r = rand () % 16;
+            switch (*p) {
+            case 'x' : out(1, hex[r], NULL); break;
+            case 'y' : out(1, hex[r & 0x03 | 0x08], NULL); break;
+            default  : out(1, *p, NULL); break;
+            }
+            p++;
+        }
+        return;
     } else if (!strcmp(funname, "decode")) {
         // TODO: add matching encode?
         char* x = s = args;
         while (*x) {
             if (*x == '+') *x = ' ';
-            if (*x == '/') *x = ' ';
             if (*x == '%') {
                 *x = HEX2INT(*(x+1)) * 16 + HEX2INT(*(x+2));
                 memmove(x+1, x+3, strlen(x+3) + 1);
@@ -612,17 +722,24 @@ void funsubst(Out out, char* funname, char* args) {
         }
     } else if (!strncmp(funname, "encrypt", 7)) {
         char hex[] = "0123456789ABCDEF";
-        char* key = "1234123412341234";
+
+        // find key to use
+        // TODO: look it up from macro
+        char* key = strstr(funname, "/");
+        if (key)
+            key = key + 1;
+        else
+            key = "1234123412341234";
+
         long k[4];
         memset(k, 0, 16);
         int kl = strlen(key);
         memcpy(k, key, kl > 16 ? 16 : kl);
 
-        skipspace();
-        // trim space at end
+        // trim space before and at end
+        skipspace(&args);
         char* last = args + strlen(args) - 1;
         while (*last == ' ') *last-- = 0;
-        
         int l = strlen(args);
 
         // encrypt-eval function, has an interesting action:
@@ -657,7 +774,14 @@ void funsubst(Out out, char* funname, char* args) {
         out(1, '}', NULL);
         return;
     } else if (!strncmp(funname, "decrypt", 7)) {
-        char* key = "1234123412341234";
+        // find key to use
+        // TODO: look it up from macro
+        char* key = strstr(funname, "/");
+        if (key)
+            key = key + 1;
+        else
+            key = "1234123412341234";
+
         long k[4];
         memset(k, 0, 16);
         int kl = strlen(key);
@@ -701,25 +825,111 @@ void funsubst(Out out, char* funname, char* args) {
         }
         return;
     } else if (!strcmp(funname, "data")) {
-        // [datas AAA] = AAAabc AAAbbb AAAxx
-        // [datas AAA CCC] = AAAabc AAAbbb AAAxx Bxzy CCCf]
-        // [data ID VAL] => VAL (stores)
         s = args;
         char* id = next();
         if (!*id) return;
-        char* data = s + strlen(id) + 1;
+        char* data = rest;
+        // prefix the name with 'data-'
         char name[strlen(id)+1+5];
         name[0] = 0;
         strcat(name, "data-");
         strcat(name, id);
-        fundef(name, "", data);
+        fundef(name, "", data, NULL, 0, jml_user);
         s = data;
+    } else if (!strncmp(funname, "eval/", 5)) { // safe eval!
+        char* pattern = funname + 5;
+        char* ret = rest;
+        int parens = 0;
+        rest = strchr(rest, '{');
+        while (rest && *rest == '{') {
+            parens++;
+            // extract fun
+            char* fun = rest + 1;
+            char next;
+            char* endfun = fun;
+            while (next = *endfun) {
+                if (*endfun == '}' || *endfun == ' ') { *endfun = 0; break; }
+                endfun++;
+            }
+
+            // check if fun in pattern/allowed funcs
+            char* ok = strstr(pattern, fun);
+            if (!ok) return;
+            char last = *(ok+strlen(fun));
+            if (*(ok-1) != '/' || (last != '/' && last)) return;
+            
+            // restore
+            *endfun = next;
+
+            // ok
+            *rest = '[';
+
+            // convert any '}' to ']' until '['
+            while (*rest++ && *rest != '{') {
+                if (*rest == '}') {
+                    if (parens-- <= 0) return;
+                    *rest = ']';
+                }
+            }
+        }
+        if (parens) return;
+        s = ret;
+    } else if (!strcmp(funname, "wget")) { // TODO: "remove", replace by guaranteed message...
+        // TODO: make a wget/FUNC/FUNC1/FUNC2 that will allow FUNC calls from source with name FUNCN...
+        // TODO: bad that it's synchronious
+        int result(void* data, char* s) {
+            if (!s) return 1;
+            // quote [] so no (unsafe) evaluation...
+            char *p = s, c;
+            while(c = *p++) {
+                if (c == '[') out(1, '{', NULL);
+                else if (c == ']') out(1, '}', NULL);
+                else out(1, c, NULL);
+            }
+            return 1; // get more...
+        }
+        wget(NULL, next(), result);
+        return;
+    } else if (!strcmp(funname, "message")) {
+        // echo "[wget [route-data [content-hash Hello! How are you?]]/id]" | ./run -q -t
+        // TODO: this will add an entry to storage and then try to send
+        //
+        //    https://en.wikipedia.org/wiki/AllJoyn
+        //    https://en.wikipedia.org/wiki/Internet_Storage_Name_Service
+        //    https://en.wikipedia.org/wiki/Service_Location_Protocol
+        //    https://en.wikipedia.org/wiki/XMPP
+        char* dest = next();
+        // char* expiry = num();
+        s = args;
+        char* id = next();
+        if (!*id) return;
+        char* data = rest;
+        char name[strlen(id)+1+8];
+        name[0] = 0;
+        strcat(name, "message-");
+        strcat(name, id);
+        fundef(name, "", data, NULL, 0, jml_user);
+        // TOOD: send message, lol
+        s = data;
+    } else if (!strcmp(funname, "cookie")) {
+        // TODO: how to make functional? infuse at "webcall resolution level"
+        char* want = next();
+        char* p = jmlheader_cookie;
+        if (!want || !p) return;
+        char* name = strchr(p, ' ');
+        if (!name) name = strchr(p, '=');
+        while (name) {
+            char* val = strtok(NULL, " ;"); // space is converted to %20 I think
+            if (!val) break;
+            // printf("\n%% want>%s< name>%s< val>%s<\n", want, name, val);
+            if (strcmp(want, name) == 0) out(-1, 0, val);
+            name = strtok(NULL, " =");
+        }
+        return;
     } else if (!strcmp(funname, "funcs")) {
-        char* prefix = next();
-        unsigned char* bigfix = next();
-        // add one with carry
-        int i = strlen(bigfix);
-        while (*bigfix && !++bigfix[--i]);
+        char* prefix = next(); // optional
+        unsigned char* bigfix = next(); // optional
+        int i;
         for(i = 0; i < functions_count; i++) {
             char* name = functions[i].name;
             if (strcmp(name, prefix) < 0) continue;
@@ -742,8 +952,21 @@ void funsubst(Out out, char* funname, char* args) {
     } else if (!strcmp(funname, "fbody")) {
         FunDef* f = findfun(next());
         if (!f) return;
-        out(-1, 0, f->body);
+        // quote it
+        char *b = f->body;
+        char c;
+        while (*b) {
+            if (*b == '[') out(1, '{', NULL);
+            else if (*b == ']') out(1, '}', NULL);
+            else out(1, *b, NULL);
+            b++;
+        }
         return;
+    } else if (!strcmp(funname, "ftime")) {
+        FunDef* f = findfun(next());
+        if (!f || !f->time) return;
+        out(-1, 0, f->time);
+        return;        
     } else if (!strcmp(funname, "time")) {
         time_t now;
         time(&now);
@@ -753,12 +976,12 @@ void funsubst(Out out, char* funname, char* args) {
         return;
         // TODO: add parsing to int with strptime or gettime
     } else {
-        fprintf(stderr, "\n%%(FAIL:%s %s)%%", funname, args);
-        out(-1, 0, "<font color=red>%(FAIL:");
+        fprintf(stderr, "\n%%(%s %s)%%", funname, args);
+        out(-1, 0, "[FAIL ");
         out(-1, 0, funname);
         out(1, ' ', NULL);
         out(-1, 0, args);
-        out(-1, 0, ")%</font>");
+        out(1, ']', NULL);
         return;
     }
 
@@ -899,11 +1122,53 @@ char* freadline(FILE* f) {
 }
 
 static void jmlheader(char* buff, char* method, char* path) {
-    //printf("HEADER.ignored: %s\n", buff);
+    // Init on new connection
+    if (!buff && !method && !path) {
+        if (jmlheader_cookie) {
+            free(jmlheader_cookie);
+            jmlheader_cookie = NULL;
+        }
+        if (jmlbody_store) {
+            free(jmlbody_store);
+            jmlbody_store = NULL;
+        }
+        if (jml_user) {
+            free(jml_user);
+            jml_user = NULL;
+        }
+    }
+
+    // TODO: extract encoding type andn handle multipart/form-data (for file upload...)
+    if (buff && strncmp(buff, CONTENT_TYPE_MULTI, strlen(CONTENT_TYPE_MULTI)) == 0) {
+        fprintf(stderr, "\n%% HEADER.cannot_parse.TODO: %s\n", buff);
+    } else if (buff && strncmp(buff, COOKIE, strlen(COOKIE)) == 0) { 
+        // https://tools.ietf.org/html/rfc6265
+        jmlheader_cookie = strdup(buff + strlen(COOKIE));
+        char* user = strstr(jmlheader_cookie, "user=");
+        if (user) {
+            user += 5;
+            char* end = strchr(user, ' ');
+            if (!end) strchr(user, ';');
+            if (!end) end = user + strlen(user);
+            jml_user = strndup(user, end-user);
+        }
+        fprintf(stderr, "\n%% HEADER.cookie: %s\n", buff);
+    } else {
+        // fprintf(stderr, "\n%% HEADER.ignored: %s\n", buff);
+    }
 }
 
 static void jmlbody(char* buff, char* method, char* path) {
-    //printf("BODY.ignored: %s\n", buff);
+    if (buff && strcmp(method, "POST") == 0) {
+        //printf("BODY: %s\n", buff);
+        if (jmlbody_store) {
+            free(jmlbody_store);
+            jmlbody_store = NULL;
+        }
+        jmlbody_store = strdup(buff);
+    } else {
+        //printf("BODY.ignored: %s\n", buff);
+    }
 }
 
 int doexit = 0;
@@ -919,6 +1184,8 @@ static void jmlresponse(int req, char* method, char* path) {
 
     // args will point to data after '?' or ' '
     char* args = strchr(path, '?');
+    
+    if (strcmp(method, "POST") == 0 && jmlbody_store) args = jmlbody_store;
 
     if (!args) args = strchr(path, ' ');
     if (!args) args = strchr(path+1, '/');
@@ -946,13 +1213,13 @@ static void jmlresponse(int req, char* method, char* path) {
     // TODO: 4. /?[fun+foo+bar]   => [/fun foo bar]
     // if '/fun' doesn't exists it'll try 'fun' -- TODO: safety problem? ;-)
     myout(1, '[', NULL);
-    safeout(-1, 0, path);
+    safeout(-1, 0, path, myout);
     myout(1, ' ', NULL);
 
     // TODO: unsafe to allow call of any function, maybe only allow call "/func" ?
     if (strchr(args, '=')) { // url on form /fun?var1=value1&var2=value2
         // We wrap all extractions in a big decode, half non-kosher
-        myout(-1, 0, "[decode");
+        myout(-1, 0, "[decode ");
 
         // TODO: could extract parameters in correct order.
         // for now, just extract values and put spaces between
@@ -960,9 +1227,10 @@ static void jmlresponse(int req, char* method, char* path) {
         char* name = strtok(args, "=");
         while (name) {
             char* val = strtok(NULL, "&");
+            // fprintf(stderr, "\n==ARG>%s< = >%s<\n", name, val);
             if (strcmp(name, "submit") != 0) { // not submit
                 myout(1, ' ', NULL);
-                safeout(-1, 0, val);
+                safeout(-1, 0, val, myout);
             }
 
             name = strtok(NULL, "=");
@@ -971,7 +1239,13 @@ static void jmlresponse(int req, char* method, char* path) {
         myout(1, ']', NULL);
     } else { // url stuff on form /fun?arg1+arg2
         myout(-1, 0, "[decode ");
-        safeout(-1, 0, args);
+        char c;
+        // replace a/b/c => a b c
+        while (c = *args++) {
+            if (c == '/') safeout(1, ' ', NULL, myout);
+            else safeout(1, c, NULL, myout);
+        }
+        // safeout(-1, 0, args);
         myout(1, ']', NULL);
     }
 
@@ -981,13 +1255,21 @@ static void jmlresponse(int req, char* method, char* path) {
 
     int putt(int c) {
         static int escape = 0;
-        if (escape && c == 'n') { write(req, "<br>", 4); c = '\n'; }
+        if (escape && c == 'n') c = '\n'; //{ write(req, "<br>", 4); c = '\n'; }
         if (escape && c == 't') c = '\t';
         if (escape = (c == '\\')) return 0;
 
         char ch = c;
         return write(req, &ch, 1);
     }
+
+    // Cleanup state
+    // TODO: make this more safe by move to init routine?
+    if (jmlbody_store) {
+        free(jmlbody_store);
+        jmlbody_store = NULL;
+    }
+    // Not cleaning out jmlheader_cookie
 
     // make a copy
     char* line = strdup(out);
@@ -999,24 +1281,48 @@ static void jmlresponse(int req, char* method, char* path) {
     // Note: line is freed by oneline, output putt
 }
 
+int putstdout(int c) {
+    static int escape = 0;
+    if (escape && c == 'n') c = '\n';
+    if (escape && c == 't') c = '\t';
+    if (escape = (c == '\\')) return 0;
+    return fputc(c, stdout);
+}
+
+int loadfile(FILE* f) {
+    last_logpos = 0; // this is "defined" per file
+    verbose--; // make it somewhat more silent during startup
+    while (f && !feof(f)) {
+        char* line = freadline(f);
+        if (!line) break;
+        int len = strlen(line);
+        if (len) {
+            // remove end newline
+            if (line[len-1] == '\n') line[len-1] = 0;
+            if (*line) oneline(line, putstdout);
+        }
+    }
+    if (out) { free(out); end = to = out = NULL; }
+    verbose++;
+    return 0;
+}
+
 int main(int argc, char* argv[]) {
     jmlputchar = putchar;
-
-    int putstdout(int c) {
-        static int escape = 0;
-        if (escape && c == 'n') c = '\n';
-        if (escape && c == 't') c = '\t';
-        if (escape = (c == '\\')) return 0;
-        return fputc(c, stdout);
-    }
 
     // parse arguments
     int argi = 1;
     int web = 0;
-    char* state = "jml.state";
+    jml_state_name = "jml.state";
+
+    FILE* f = fopen(jml_state_name, "a+"); // position for read beginning, write always only appends
+    if (f) loadfile(f);
 
     while (argc > argi) {
-        if (!strcmp(argv[argi], "-v")) {
+        if (!strcmp(argv[argi], "-h")) {
+            printf("./run [-q(uiet)] [-t(race)] [-w(eb) [PORT]] [-v(erbose)] [-h(elp)] [file.state [...]]\n");
+            exit(1);
+        } else if (!strcmp(argv[argi], "-v")) {
             argi++;
             verbose++;
         } else if (!strcmp(argv[argi], "-q")) { // quiet
@@ -1032,38 +1338,33 @@ int main(int argc, char* argv[]) {
                 argi++;
             else
                 web = 1111;
-        } else if (argv[argi][0] != '-') {
+        } else if (!strcmp(argv[argi], "-s")) {
             argi++;
-            state = argv[argi];
+            web = -1;
+        } else if (argv[argi][0] != '-') {
+            // Read previous state(s)
+            jml_state_name = argv[argi];
+            argi++;
+            if (f) fclose(f);
+            if (verbose > 0) fprintf(stderr, "\n%% loading file: %s\n", jml_state_name);
+            f = fopen(jml_state_name, "a+"); // position for read beginning, write always only appends
+            int r = loadfile(f);
+            if (r) fprintf(stderr,
+                "\n%%%% Error loading file: %s (run with -v -v -v ... to get more verbose)\n", jml_state_name);
         }
     }
+    
+    // keep last file open
+    jml_state = f;
 
     //fprintf(stderr, "trace=%d web=%d state=%s\n", trace, web, state);
-
-    // Read previous state
-    verbose--; // make it somewhat more silent during startup
-    FILE* f  = fopen(state, "a+"); // position for read beginning, write always only appends
-    while (f && !feof(f)) {
-        char* line = freadline(f);
-        if (!line) break;
-        int len = strlen(line);
-        if (len) {
-            // remove end newline
-            if (line[len-1] == '\n') line[len-1] = 0;
-            if (*line) oneline(line, putstdout);
-        }
-    }
-    if (out) { free(out); end = to = out = NULL; }
-    verbose++;
-
-    // Keep file open to append new defs
-    jml_state = f;
     
     // Start the web server
     if (web) {
         int www = httpd_init(web);
-        if (www < 0 ) { printf("ERROR.errno=%d\n", errno); return -1; }
-        if (verbose >= 0) fprintf(stderr, "\n{{--Webserver started on port=%d--}\n", web);
+        if (www < 0 ) { fprintf(stderr, "ERROR.errno=%d\n", errno); return -1; }
+        if (verbose >= 0)
+            fprintf(stderr, "\n{{--%s: Webserver started on port=%d--}}\n", jml_state_name, web);
         doexit = 0;
         // simple single threaded semantics/monitor/object/actor
         while (!doexit) {
@@ -1073,7 +1374,7 @@ int main(int argc, char* argv[]) {
         char* line = NULL;
         do {
             // TODO: make it part of non-blocking loop!
-          if (verbose > 0) fprintf(stderr, "\n> ");
+            if (verbose >= 0) fprintf(stderr, "\n> ");
             line = freadline(stdin);
             if (line) {
                 int len = strlen(line);

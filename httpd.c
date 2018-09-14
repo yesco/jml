@@ -1,4 +1,6 @@
 // simplified from: http://blog.manula.org/2011/05/writing-simple-web-server-in-c.html
+// TODO: backpatch this to the esp-lisp project
+
 //#ifdef UNIX
   #include <netinet/in.h> // missing on esp-open-rtos
   #include <fcntl.h> // duplicate def on esp-open-rtos
@@ -12,6 +14,8 @@
 #include <unistd.h>
 #include <errno.h>
 #include <string.h>
+
+#include <netdb.h>
 
 #include "httpd.h"
 
@@ -93,19 +97,20 @@ int httpd_next(int s, httpd_header emit_header, httpd_body emit_body, httpd_resp
     char *path = strdup(strtok(NULL, " "));
 
     // -- process headers
+    if (emit_header) emit_header(NULL, NULL, NULL);
     int expectedsize = -1;
     while (fdgetline(&buffer, &len, req) > 0) {
         if (emit_header) emit_header(buffer, method, path);
-        if (strcmp(buffer, "Content-Length: ") == 0) {
+        if (strncmp(buffer, "Content-Length: ", strlen("Content-Length: ")) == 0) {
             // http://www.w3.org/Protocols/rfc2616/rfc2616-sec4.html#sec4.4
             // http://stackoverflow.com/questions/2773396/whats-the-content-length-field-in-http-header
             strtok(buffer, " ");
             expectedsize = atoi(strtok(NULL, " "));
+            // fprintf(stderr, "\nLEN=%d\n", expectedsize);
         }
     }
     if (emit_header) emit_header(NULL, method, path);
 
-    // TODO: handle POST get parameters, also add paramter getter for path
     // http://www.w3.org/Protocols/rfc2616/rfc2616-sec9.html#sec9.5
     // may need to handle different encodings...?
     // http://www.w3.org/Protocols/rfc2616/rfc2616-sec7.html#sec7
@@ -126,6 +131,20 @@ int httpd_next(int s, httpd_header emit_header, httpd_body emit_body, httpd_resp
         bodycount += n;
         if (n > 0 && emit_body) emit_body(buffer, method, path);
     }
+    // BODY.ignored: ------WebKitFormBoundaryFxBJmZhQgTbUb0sG
+    // Content-Disposition: form-data; name="submit"
+    // 
+    // send
+    // ------WebKitFormBoundaryFxBJmZhQgTbUb0sG
+    // Content-Disposition: form-data; name="foo"
+    // bar
+    // ------WebKitFormBoundaryFxBJmZhQgTbUb0sG
+    // Content-Disposition: form-data; name="fie"
+    // 
+    // fum
+    // ------WebKitFormBoundaryFxBJmZhQgTbUb0sG--
+    //
+    // BODY.ignored: (null)
     free(buffer);
     if (emit_body) emit_body(NULL, method, path);
 
@@ -156,6 +175,124 @@ void httpd_loop(int s) {
     while (1) {
         httpd_next(s, header, body, response);
     }
+}
+
+#define MAX_BUFF 128
+
+// TODO: make it return RESPONE CODE
+// TODO: fix port...
+int wget(void* data, char* url, int out(void* data, char* s)) {
+    int successes = 0, failures = 0;
+        
+    char* se = strstr(url, "http://");
+    if (!se) return 5; else se += 7;
+    char* p = strstr(se, ":");
+    int port = p ? atoi(p + 1) : 80;
+    char* sl = strstr(se, "/");
+    char* path = sl;
+    while (path[0] == '/' && path[1] == '/') path++;
+    if (!sl) sl = url + strlen(url); else sl--;
+    int l = p ? p - se : sl - se + 1;
+    char server[l + 1];
+    memset(server, 0, sizeof(server));
+    memcpy(server, se, l);
+
+    if (0) {
+        fprintf(stderr, "\n%%HTTP get task starting...\r\n");
+        fprintf(stderr, "  url=%s\n", url);
+        fprintf(stderr, "  server=%s\n", server);
+        fprintf(stderr, "  port=%d\n", port);
+    }
+
+    const struct addrinfo hints = {
+        .ai_family = AF_INET,
+        .ai_socktype = SOCK_STREAM,
+    };
+    struct addrinfo *res;
+
+    //printf("Running DNS lookup for %s...\r\n", url);
+    // TODO: fix port...
+    char portstr[10] = {0};
+    snprintf(portstr, sizeof(portstr), "%d", port);
+    int err = getaddrinfo(server, portstr, &hints, &res);
+
+    if (err != 0 || res == NULL) {
+        fprintf(stderr, "DNS lookup failed err=%d res=%p server=%s\r\n", err, res, server);
+        if (res)
+            freeaddrinfo(res);
+        failures++;
+        return 1;
+    }
+
+    /* Note: inet_ntoa is non-reentrant, look at ipaddr_ntoa_r for "real" code */
+    //struct in_addr *addr = &((struct sockaddr_in *)res->ai_addr)->sin_addr;
+    //printf("DNS lookup succeeded. IP=%s\r\n", inet_ntoa(*addr));
+
+    int s = socket(res->ai_family, res->ai_socktype, 0);
+    if (s < 0) {
+        fprintf(stderr, "... Failed to allocate socket.\r\n");
+        freeaddrinfo(res);
+        failures++;
+        return 2;
+    }
+
+    if (connect(s, res->ai_addr, res->ai_addrlen) != 0) {
+        close(s);
+        freeaddrinfo(res);
+        fprintf(stderr, "... socket connect failed.\r\n");
+        failures++;
+        return 3;
+    }
+
+    //printf("... connected\r\n");
+    freeaddrinfo(res);
+
+    // TODO: not efficient?
+    #define WRITE(msg) (write((s), (msg), strlen(msg)) < 0)
+    if (WRITE("GET ") ||
+        WRITE(path ? path : "/") ||
+        WRITE("\r\n") ||
+        WRITE("User-Agent: esp-open-rtos/0.1 esp8266\r\n\r\n"))
+    #undef WRITE
+    {
+        fprintf(stderr, "... socket send failed\r\n");
+        close(s);
+        failures++;
+        return 4;
+    }
+    //printf("... socket send success\r\n");
+
+    // TODO: should check return code
+    // TODO: what to do with error code?
+    // TODO: what to do if fail connect or error?
+    int header = 2;
+    int r = 0;
+    do {
+        char buff[MAX_BUFF] = {0};
+        r = read(s, buff, sizeof(buff)-1);
+        // skip header
+        char *p = buff, c;
+        while(*p && header && (c = *p)) {
+            if (c != '\r' && c != '\n') header = 2;
+            if (c == '\n') header--;
+            p++;
+        }
+
+        if (r > 0 && *p && !out(data, p)) break;
+    } while (r > 0);
+
+    // mark end
+    out(data, NULL);
+
+    //printf("... done reading from socket. Last read return=%d errno=%d\r\n", r, errno);
+    if (r != 0)
+        failures++;
+    else
+        successes++;
+
+    close(s);
+
+    return 0;
 }
 
 #ifdef HTTPD_MAIN
