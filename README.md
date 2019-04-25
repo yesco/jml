@@ -75,6 +75,8 @@ empirical model and fitting parameters." - wikipedia
 C (gcc) compiler, and simple unix style standard library calls.
 For "security" no external libraries are used.
 
+[HowTo Compile a 32-bit Application Using gcc On the 64-bit Linux Version](https://www.cyberciti.biz/tips/compile-32bit-application-using-gcc-64-bit-linux.html)
+
 ## Why
 
 The idea of a minimal OS is coming up again, maybe recently more (now

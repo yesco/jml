@@ -1,3 +1,4 @@
+#!/bin/sh
 gcc -m32 -g jml.c httpd.c && gdb a.out
 
 
