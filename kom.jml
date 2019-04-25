@@ -1,0 +1,9 @@
+[macro kom $tid][[if [empty $tid] kom-browse kom-view-text] $tid][/macro]
+[macro kom-view-text $tid][kom-header Read text $tid]$tid Saturday, 4 Maj 1996 13:07:48 /646 rader/ Jonas S Karlsson (IBM)<br/>Conference: (-) LISP-conference<br/>Subject: "HalfAnHourLisp" (in 2 hours)</br>------------------------------------------------------------<br/>Text text text text...</br>($tid) --(Comment)--(see Tree)--(HTML)--(dis)-(Mark)--(Delete)----<br/>[/macro]
+[macro kom-browse][kom-header Browser][flex ALL [flex CONFS [kom-list-unread]] [flex THREADS threads] [flex TEXTS texts] ][/macro]
+[macro kom-header @title]<html><head><title>[unhtml @title - RedFisk]</title>[default-style]</head><body><header class='foothead' style='min-height:20px; padding-top: 10px;background-color:pink;border-bottom: 2px solid black'>[kom-about][show-user]<b style='padding-left:10px;color:black;font-family:helvetica;'>@title</b></header>[kom-menu]<br/>[/macro]
+[macro kom-menu]<b style='background-color:black;color:white'>&nbsp;MENU&nbsp;</b><br/>[/macro]
+[macro kom-list-unread]<div>[b Unread in]<br/>5 Jonas S Karlsson<br/>10 Lisp-conference<br/>7 New conferences<br/></div>[/macro]
+[macro kom-about]<span style='font-family:helvetica;color:black'><span style='outline:2px solid red'><b style='color:black;background-color:red'>&nbsp;Red&nbsp;</b><b style='color:black'>&nbsp;Fisk&nbsp;</b></span>&nbsp;.COM</span>[/macro]
+[macro flex $id @text]<div id='$id' style='padding:10px;display:flex'>@text</div>[/macro]
+
