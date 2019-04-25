@@ -1,15 +1,15 @@
 [macro kom $tid][[if [empty $tid] kom-browse kom-view-text] $tid][/macro]
 [macro kom-view-text $tid][kom-header Read text $tid]$tid Saturday, 4 Maj 1996 13:07:48 /646 rader/ Jonas S Karlsson (IBM)<br/>Conference: (-) LISP-conference<br/>Subject: "HalfAnHourLisp" (in 2 hours)</br>------------------------------------------------------------<br/>Text text text text...</br>($tid) --(Comment)--(see Tree)--(HTML)--(dis)-(Mark)--(Delete)----<br/>[/macro]
-[macro kom-browse][kom-header Browser][flex ALL [kom-pane CONFS [kom-pane-head Unread in][kom-list-unread]] [kom-pane THREADS [kom-pane-head Threads] threads] [kom-pane TEXTS [kom-pane-head Texts] texts] ][/macro]
-[macro kom-header @title]<html><head><title>[unhtml @title - RedFisk]</title>[default-style]</head><body style='margin-left:-50px;'><header class='foothead' style='min-height:20px; padding-top: 10px;background-color:lightblue;border-bottom: 2px solid black'>[kom-about][show-user]<b style='padding-left:10px;color:black;font-family:helvetica;'>@title</b></header>[kom-menu]<br/>[/macro]
-[macro kom-menu]<b style='background-color:black;color:white'>&nbsp;MENU&nbsp;</b><br/>[/macro]
-[macro kom-list-unread]5 Jonas S Karlsson<br/>10 Lisp-conference<br/>7 New conferences<br/>[/macro]
+[macro kom-browse][kom-header Browser][flex ALL [kom-pane 1 CONFS [kom-pane-head Unread in] [kom-list-unread]] [kom-pane 1 THREADS [kom-pane-head Threads] threads] [kom-pane 2 TEXTS [kom-pane-head Texts] texts] ][/macro]
+[macro kom-header @title]<html><head><title>[unhtml @title - RedFisk]</title>[default-style]</head><body><header class='foothead' style='min-height:20px; padding-top: 10px;background-color:lightblue;border-bottom: 2px solid black'>[kom-about][show-user]<b style='padding-left:10px;color:black;font-family:helvetica;'>@title</b></header>[kom-menu]<div style='margin-left:-50px'>[/macro]
+[macro kom-menu]Unread &nbsp;-&nbsp;  New &nbsp;-&nbsp; Changed &nbsp;-&nbsp; Inbox &nbsp;-&nbsp; Groups &nbsp;-&nbsp; Drafts &nbsp;-&nbsp; Mine &nbsp;-&nbsp; All <div style='float:right'>Help &nbsp;-&nbsp; About</div>[/macro]
+[macro kom-list-unread]<div style='white-space:pre;overflow-x:clip;overflow-y:auto;'>5 Jonas S Karlsson<br/>10 Lisp-conference<br/>22 Very long name long long lnogngl sgdsdglsdag sadg dsag a<br/>7 New conferences<br/></div>[/macro]
 [macro kom-about]<span style='font-family:helvetica;color:black'><span style='outline:2px solid red'><b style='color:black;background-color:red'>&nbsp;Red&nbsp;</b><b style='color:black'>&nbsp;Fisk&nbsp;</b></span>&nbsp</span>[/macro]
 [macro kom-list-trees $conf][kom-pane-head [kom-conf-name $conf]][b Unread trees]<br/>(15) 4711 Feel good<br/>(3) 4912 feel better<br/>[/macro]
 
 [macro flex $id @text]<div id='$id' style='padding:10px;display:flex'>@text</div>[/macro]
-[macro kom-pane $id @text]<div id='$id' style='padding:10px;display:flex;box-shadow:3px 3px 5px 2px #ccc;margin:10px;'><div>@text</div></div>[/macro]
-[macro kom-pane-head @text]<div style='widht:100%;font-family:Arial;background-color:black;color:white;font-size:15px;padding-left:5px;padding-top:2px;padding-bottom:2px;padding-right:10px;margin-bottom:5px;margin-left:-5px;margin-right:-5px;margin-top:-5px;'><b>@text</b></div>[/macro]
+[macro kom-pane $flex $id @text]<div id='$id' style='padding:10px;display:flow-root;box-shadow:3px 3px 5px 2px #ccc;margin:10px;flex: $flex;'>@text</div>[/macro]
+[macro kom-pane-head @text]<div style='width:100%;font-family:Arial;background-color:black;font-size:14px;color:white;;padding-left:5px;padding-top:2px;padding-bottom:2px;padding-right:5px;margin-bottom:5px;margin-left:-5px;margin-right:100px;margin-top:-5px;'><b>@text</b></div>[/macro]
 
 [-- http://www.peachpit.com/blogs/blog.aspx?uk=Frames-are-Dead-Long-Live-Iframes --]
 
