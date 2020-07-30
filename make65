@@ -6,8 +6,13 @@ export CC65_INC=../cc65/include
 export LD65_LIB=../cc65/lib
 export LD65_CFG=../cc65/cfg
 export CA65_INC=../cc65/asminc
-export 
 
+rm jml.s
+rm jml.tap
+rm jml.o
 
 ../cc65/bin/cl65 -O -DCC65 -t atmos jml.c -o jml.tap
+# now generate assebly file... and keep it!
+../cc65/bin/cl65 -S -T -O -DCC65 -t atmos jml.c -o jml.tap
 
+ls jml*

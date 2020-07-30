@@ -18,8 +18,12 @@
 
 // max number of functions
 // TODO: make linked list
-#define SIZE 1024
-
+#ifdef CC65
+  #define SIZE 64
+#else
+  #define SIZE 1024
+#endif
+#
 // set to non-0 to trace evaluation on stderr
 int trace  = 0;
 // set to > 0 to write perf messages to stderr
@@ -183,9 +187,10 @@ void fundef(char* funname, char* args, char* body, char* crtime, int logpos, cha
 
       char iso[sizeof "2011-10-08T07:07:09Z"];
       time_t now;
+#ifndef CC65
       time(&now);
       strftime(iso, sizeof iso, "%FT%TZ", gmtime(&now));
-
+#endif
       // take a copy as the data comes from transient current state of program
       f->name = strdup(funname);
       f->args = strdup(args);
@@ -1534,6 +1539,8 @@ int main(int argc, char* argv[]) {
             if (verbose >= 0) fprintf(stderr, "\njml> ");
 #ifdef CC65
 	    {
+	      // function unknown on CC65... write it?
+
 	      int n = getline(&line, &linen, stdin);
 	    }
 #endif	    
@@ -1551,5 +1558,7 @@ int main(int argc, char* argv[]) {
         } while (line);
     }
 
+#ifndef CC65
     if (jml_state) fclose(jml_state);
+#endif
 } 
