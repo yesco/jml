@@ -3,7 +3,9 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <string.h>
+//#include <cstring>
 #include <errno.h>
 #include <time.h>
 #include <ctype.h>
@@ -69,14 +71,14 @@ void myout(int len, char c, char* s) {
         ramtotal += sz;
         ramlast = sz;
         if (verbose > 2) fprintf(stderr, "{--ALLOC %d--}", sz);
-        to = out = malloc(sz);
+        to = out = (char*) malloc(sz);
         memset(out, 0, sz);
         end = out + sz;
     }
 
     if (to + len >= end) {
         int sz = end-out + 1024 + len;
-        char* nw = realloc(out, sz);
+        char* nw = (char*) realloc(out, sz);
         *to = 0;
         ramtotal += sz;
         rammax = sz > rammax ? sz : rammax;
@@ -389,9 +391,9 @@ void removefuns(char* s) {
 // encrypt: btea(data, #longs (>1) keyhash (4 long))
 // decrypt: btea(data, #longs (<1) keyhash (4 long))
 //#include <stdint.h>
-long btea(long* v, long n, long* k) {
-    unsigned long z=v[n-1], y=v[0], sum=0, e, DELTA=0x9e3779b9;
-    long p, q ;
+int32_t btea(int32_t* v, int32_t n, int32_t* k) {
+    uint32_t z=v[n-1], y=v[0], sum=0, e, DELTA=0x9e3779b9;
+    int32_t p, q ;
     if (n > 1) {          /* Coding Part */
         q = 6 + 52/n;
         while (q-- > 0) {
@@ -420,7 +422,7 @@ long btea(long* v, long n, long* k) {
 
 // gcc only... :-(
 //#define HEX2INT(x) ({ int _x = toupper(x); _x >= 'A' ? _x - 'A' + 10 : _x - '0'; })
-char HEX2INT(x) {
+char HEX2INT(int x) {
   int _x = toupper(x);
   return  _x >= 'A' ? _x - 'A' + 10 : _x - '0';
 }
@@ -519,7 +521,7 @@ char* jml_user = NULL;
 Out runout;
 
     void skipspace(char **pos) {
-        while(**pos == ' ') *pos++;
+        while(**pos == ' ') (void) *pos++;
     }
     
     void outspace() {
@@ -556,7 +558,7 @@ Out runout;
         char* r = strtok(a, " ");
 	nextargs = NULL; // strtok will get only once
         rest += r ? strlen(r) + 1 : 0;
-        return r ? r : ""; // returning NULL may crash stuff...
+        return r ? r : (char*) ""; // returning NULL may crash stuff...
     }
     int num() { return atoi(next()); }
 
@@ -618,8 +620,8 @@ void funsubst(Out out, char* funname, char* args) {
     }
     else if (!strcmp(funname, "if")) {
         int e = num(); char *thn = next(), *els = next();
-        thn = thn ? thn : "";
-        els = els ? els : "";
+        thn = thn ? thn : (char*) "";
+        els = els ? els : (char*) "";
         s = e ? thn : els;
     }
     else if (!strcmp(funname, "empty")) { char* x = next(); r = !x ? 1 : !*x; }
@@ -630,8 +632,8 @@ void funsubst(Out out, char* funname, char* args) {
     else if (!strcmp(funname, "equal")) r = strcmp(next(), next()) == 0;
     else if (!strcmp(funname, "cmp")) r = strcmp(next(), next());
     // we can modify the input strings, as long as they get shorter...
-    else if (!strcmp(funname, "lower")) { char* x = s = args; while ((*x = tolower(*x))) x++; }
-    else if (!strcmp(funname, "upper")) { char* x = s = args; while ((*x = toupper(*x))) x++; }
+    else if (!strcmp(funname, "lower")) { char* x = args; s = args; while ((*x = tolower(*x))) x++; }
+    else if (!strcmp(funname, "upper")) { char* x = args; s = args; while ((*x = toupper(*x))) x++; }
     else if (!strcmp(funname, "length")) { r = 0; while (*next()) r++; }
     else if (!strcmp(funname, "bytes")) { r = 0; while (*args++) r++; }
     else if (!strcmp(funname, "nth")) { int n = num(); s = ""; while (n-- > 0) s = next(); }
@@ -642,7 +644,7 @@ void funsubst(Out out, char* funname, char* args) {
         return;
     } else if (!strncmp(funname, "filter", 6)) {
         char* pred = next();
-        char* fun = !strcmp(funname, "filter-do") ? next() : "identity";
+        char* fun = !strcmp(funname, "filter-do") ? next() : (char*) "identity";
         char* x;
         while (*(x = next())) {
             // [[if [pred X] fun ignore] X]
@@ -684,9 +686,10 @@ void funsubst(Out out, char* funname, char* args) {
         char* a = next();
         char* b = next();
         while (*a && *b) {
-          char *xa = a, *xb = b, *p = a;
+          char *xa = a, *xb = b;
+	  char* p = (char*) a; // TODO: remove all const!
           while (*xa && *xb && *xa++ == *xb++) p++;
-          *p = 0;
+	  *p = 0; // cut at end of common prefix
           b = next();
         }
         out(-1, 0, a);
@@ -801,7 +804,7 @@ void funsubst(Out out, char* funname, char* args) {
         }
     } else if (!strncmp(funname, "encrypt", 7)) {
         char hex[] = "0123456789ABCDEF";
-        long k[4]; // long assumed to be 4 bytes!
+        int32_t k[4]; // long assumed to be 4 bytes!
 
         // find key to use
         // TODO: look it up from macro
@@ -810,7 +813,7 @@ void funsubst(Out out, char* funname, char* args) {
 	char* last;
 	int l;
 	int n;
-	long* data;
+	int32_t* data;
 	int i;
 	char* d;
 
@@ -848,9 +851,9 @@ void funsubst(Out out, char* funname, char* args) {
 	// TODO: can we do it in place? with no allocation? I guess we may need 4 bytes extra...
 	// we could just move it back over the [encrypt but we'd need to align it on 4byte boundary
         //long data[n]; // cc65 can't
-	// again: assumption long == 4 bytes
-	data = malloc(n*4);
-        memset(data, 0, n*4);
+	// again: assumption long == 4 bytes, hmmm
+	data = (int32_t*) malloc(n*sizeof(*data));
+        memset(data, 0, n*sizeof(*data));
         memcpy(data, args, l+1); // incl \0
         btea(data, n, k);
 
@@ -868,7 +871,7 @@ void funsubst(Out out, char* funname, char* args) {
         // find key to use
         // TODO: look it up from macro
         char* key = strstr(funname, "/");
-        long k[4];
+        int32_t k[4];
 	int kl;
 	char* last;
 	char* d;
@@ -876,7 +879,7 @@ void funsubst(Out out, char* funname, char* args) {
 	char a;
 	char b;
 	int n;
-	long* data;
+	int32_t* data;
 	int eval;
 	int i;
 
@@ -908,9 +911,9 @@ void funsubst(Out out, char* funname, char* args) {
         
         // TODO: refactor, same as above?
         n = (d - args - 1)/4;
-        data = malloc(n*4);
-        memset(data, 0, n*4);
-        memcpy(data, args, n*4);
+        data = (int32_t*) malloc(n*sizeof(*data));
+        memset(data, 0, n*sizeof(*data));
+        memcpy(data, args, n*sizeof(*data));
         btea(data, -n, k);
 
         eval = !strcmp(funname, "decrypt-eval");
@@ -936,7 +939,7 @@ void funsubst(Out out, char* funname, char* args) {
         if (!*id) return;
         data = rest;
         // prefix the name with 'data-'
-        name = malloc(strlen(id)+1+5);
+        name = (char*) malloc(strlen(id)+1+5);
         name[0] = 0;
         strcat(name, "data-");
         strcat(name, id);
@@ -1020,7 +1023,7 @@ void funsubst(Out out, char* funname, char* args) {
         id = next();
         if (!*id) return;
         data = rest;
-	name = malloc(strlen(id)+1+8);
+	name = (char*) malloc(strlen(id)+1+8);
         name[0] = 0;
         strcat(name, "message-");
         strcat(name, id);
@@ -1047,7 +1050,7 @@ void funsubst(Out out, char* funname, char* args) {
         return;
     } else if (!strcmp(funname, "funcs")) {
         char* prefix = next(); // optional
-        unsigned char* bigfix = next(); // optional
+        unsigned char* bigfix = (unsigned char*) next(); // optional
         int i;
         for(i = 0; i < functions_count; i++) {
             char* name = functions[i].name;
@@ -1193,7 +1196,7 @@ int run(char* start, Out out) {
 int oneline(char* s, jmlputchartype putt) {
     clock_t start = clock();
     // temporary change output method
-    void* stored = jmlputchar;
+    jmlputchartype stored = jmlputchar;
     int reductions = 0;
     int cycles = 0;
     int r;
@@ -1380,7 +1383,7 @@ static void jmlresponse(int req, char* method, char* path) {
         char c;
         myout(-1, 0, "[decode ");
         // replace a/b/c => a b c
-        while (c = *args++) {
+        while ((c = *args++)) {
             if (c == '/') safeout(1, ' ', NULL, myout);
             else safeout(1, c, NULL, myout);
         }
@@ -1531,7 +1534,7 @@ int main(int argc, char* argv[]) {
     else
 #endif
     {
-        char* line = malloc(10);
+        char* line = (char*) malloc(10);
         int linen = 10;
         do {
 

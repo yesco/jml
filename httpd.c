@@ -61,7 +61,7 @@ int fdgetline(char** b, int* len, int fd) {
     while (1) {
         if (n + 1 > *len) {
             *len *= 1.3;
-            *b = realloc(*b, *len);
+            *b = (char*) realloc(*b, *len);
         }
 
         if (read(fd, *b + n, 1) < 1) { // eof
@@ -87,7 +87,7 @@ int httpd_next(int s, httpd_header emit_header, httpd_body emit_body, httpd_resp
     if (req < 0) return 0;
 
     int len = BUFSIZE;
-    char *buffer = malloc(len);
+    char *buffer = (char*) malloc(len);
 
     // -- process request line
     if (fdgetline(&buffer, &len, req) <= 0) return 0;

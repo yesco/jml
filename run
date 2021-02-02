@@ -1,3 +1,6 @@
 #!/bin/sh
+# changed for Termux that doesn't support gcc and nested functions
+clang++ -Wno-deprecated -Wno-writable-strings -DHTTPD jml.c httpd.c && mv a.out ./jml && ./jml $*
+
 # notice, we make the compiler generate 4b longs...
-gcc -m32 -DHTTPD jml.c httpd.c && mv a.out ./jml && ./jml $*
+#gcc -m32 -DHTTPD jml.c httpd.c && mv a.out ./jml && ./jml $*
