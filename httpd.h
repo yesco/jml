@@ -1,4 +1,5 @@
-int wget(void* data, char* url, int out(void* data, char* s));
+//int wget(void* data, char* url, int out(void* data, char* s));
+int wget(void* data, char* url, auto out);
 
 typedef void (*httpd_header)(char* buffer, char* method, char* path); // will be called for each header line, last time NULL
 typedef void (*httpd_body)(char* buffer, char* method, char* path); // may be called several times, last time NULL

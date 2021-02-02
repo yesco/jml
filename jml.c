@@ -225,52 +225,56 @@ typedef struct Match {
 #ifndef CC65  
 // only knows ^ () * . $
 // TODO: + [] ?
-Match match(char *regexp, char *text, char* fun, Out out, int subst, int global) {
+void match(char *regexp, char *text, char* fun, Out out, int subst, int global) {
   #define MAXLEVELS 10
   Match m[MAXLEVELS];// = { 0 };
   memset(m, 0, sizeof(m)); // cc65
   
   // can't do forward declaration for "dynamic function"
-  int (*matchstar)(int c, char *regexp, char *text, int level);
+  //int (*matchstar)(int c, char *regexp, char *text, int level);
+  //int (*Xmatchhere)(char *regexp, char *text, int level);
   
   /* matchhere: search for regexp at beginning of text */
-  int Xmatchhere(char *regexp, char *text, int level) {
+  //int Xmatchhere(char *regexp, char *text, int level) {
+  auto Xmatchhere = [&] (char *regexp, char *text, int level, auto xmh, auto ms)->int {
     m[level].endend = text;
     if (!*text) return !*regexp;
     if (level >= MAXLEVELS) { fprintf(stderr, "\n%%Regexp full %s", regexp); return 0; }
     if (!*regexp) { m[0].end = text; return 1; }
-    if (*regexp == '(') { m[++level].start = text; return Xmatchhere(regexp+1, text, level); }
-    if (*regexp == ')') { m[level].end = text; return Xmatchhere(regexp+1, text, level); }
-    if (regexp[1] == '*') return matchstar(*regexp, regexp+2, text, level);
+    if (*regexp == '(') { m[++level].start = text; return xmh(regexp+1, text, level, xmh, ms
+							      ); }
+    if (*regexp == ')') { m[level].end = text; return xmh(regexp+1, text, level, xmh, ms); }
+    if (regexp[1] == '*') return ms(*regexp, regexp+2, text, level, ms);
     if (*regexp == '$' && !regexp[1]) { if (!m[level].end) m[level].end = text; return *text == '\0'; }
     if (*regexp == '\\' && regexp[1] == 'n' && *text == '\n') {
-        return Xmatchhere(regexp+2, text+1, level);
+      return xmh(regexp+2, text+1, level, xmh, ms);
     }
-    if (*text && (*regexp == '.' || *regexp == *text)) return Xmatchhere(regexp+1, text+1, level);
+    if (*text && (*regexp == '.' || *regexp == *text)) return xmh(regexp+1, text+1, level, xmh, ms);
     return 0;
-  }
+  };
 
   /* matchstar: search for c*regexp at beginning of text */
-  int Xmatchstar(int c, char *regexp, char *text, int level) {
+  //int Xmatchstar(int c, char *regexp, char *text, int level, auto ms) {
+  auto Xmatchstar = [&] (int c, char *regexp, char *text, int level, auto ms)->int {
     do { /* a * matches zero or more instances */
-      if (Xmatchhere(regexp, text, level)) return 1;
+      if (Xmatchhere(regexp, text, level, Xmatchhere, ms)) return 1;
     } while (*text && (*text++ == c || c == '.'));
     return 0;
-  }
+  };
 
-  int Xmatch(char* regexp, char* text, int level) {
+  auto Xmatch = [&] (char* regexp, char* text, int level)->int {
     if (!text || !*text) return !*regexp;
-    if (*regexp == '^') return Xmatchhere(regexp+1, m[level].start = text, level);
+    if (*regexp == '^') return Xmatchhere(regexp+1, m[level].start = text, level, Xmatchhere, Xmatchstar);
     // TODO: not correct, as we call many times with "global" pretent there is an \n at the beginning
     if (*regexp == '\\' && regexp[1] == 'n'
-        && Xmatchhere(regexp+2, m[level].start = text, level)) return 1;
+        && Xmatchhere(regexp+2, m[level].start = text, level, Xmatchhere, Xmatchstar)) return 1;
     do { /* must look even if string is empty */
-      if (Xmatchhere(regexp, m[level].start = text, level)) return 1;
+      if (Xmatchhere(regexp, m[level].start = text, level, Xmatchhere, Xmatchstar)) return 1;
     } while (*text++);
     return 0;
-  }
+  };
 
-  matchstar = Xmatchstar;
+  //matchstar = Xmatchstar; // backpatch for mutal recursion
   char* last = text;
   m[0] = (Match){text, text};
   while (Xmatch(regexp, text, 0) && global) {
@@ -991,17 +995,19 @@ void funsubst(Out out, char* funname, char* args) {
     } else if (!strcmp(funname, "wget")) { // TODO: "remove", replace by guaranteed message...
         // TODO: make a wget/FUNC/FUNC1/FUNC2 that will allow FUNC calls from source with name FUNCN...
         // TODO: bad that it's synchronious
-        int result(void* data, char* s) {
+        //int result(void* data, char* s) {
+        auto result = [&] (void* data, char* s)->int {
             if (!s) return 1;
             // quote [] so no (unsafe) evaluation...
             char *p = s, c;
-            while(c = *p++) {
+            while((c = *p++)) {
                 if (c == '[') out(1, '{', NULL);
                 else if (c == ']') out(1, '}', NULL);
                 else out(1, c, NULL);
             }
             return 1; // get more...
-        }
+        };
+	
         wget(NULL, next(), result);
         return;
 #endif
@@ -1055,7 +1061,7 @@ void funsubst(Out out, char* funname, char* args) {
         for(i = 0; i < functions_count; i++) {
             char* name = functions[i].name;
             if (strcmp(name, prefix) < 0) continue;
-            if (*bigfix ? strcmp(name, bigfix) > 0
+            if (*bigfix ? strcmp(name, (const char*)bigfix) > 0
                 : strncmp(name, prefix, strlen(prefix))) continue;
             out(-1, 0, name);
             out(1, ' ', NULL);
@@ -1193,7 +1199,8 @@ int run(char* start, Out out) {
 // NOT! assumes one mallocated string in, it will be freed
 // no return, just output on "stdout"
 // TODO: how to handle macro def/invocations over several lines?
-int oneline(char* s, jmlputchartype putt) {
+//int oneline(char* s, jmlputchartype putt) {
+auto oneline = [] (char* s, auto putt)->int {
     clock_t start = clock();
     // temporary change output method
     jmlputchartype stored = jmlputchar;
@@ -1246,7 +1253,7 @@ int oneline(char* s, jmlputchartype putt) {
     ramlast = 0;
 
     return t;
-}
+};
 
 #ifndef CC65
 char* freadline(FILE* f) {
@@ -1395,16 +1402,17 @@ static void jmlresponse(int req, char* method, char* path) {
     
     //fprintf(stderr, "OUT>>>%s<<<\n", out);
 
-    int putt(int c) {
+    //int putt(int c) {
+    auto putt = [&] (int c)->int {
         static int escape = 0;
 	char ch = c;
 
         if (escape && c == 'n') c = '\n'; //{ write(req, "<br>", 4); c = '\n'; }
         if (escape && c == 't') c = '\t';
-        if (escape = (c == '\\')) return 0;
+        if ((escape = (c == '\\'))) return 0;
 
         return write(req, &ch, 1);
-    }
+    };
 
     // Cleanup state
     // TODO: make this more safe by move to init routine?
