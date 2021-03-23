@@ -32,19 +32,23 @@
 // compile:
 //   clang -Wwritable-strings xtract.cc && ./a.out
 
-
 #include <stdio.h>
 #include <strings.h>
 #include <string.h>
 #include <ctype.h>
 
+char* xresult = NULL;
+
 char* xtract(char* p, char* t, int one, int level) {
   int isXML=0, isJSON=0, isCSV=0, isDict=0, isINI=0, isYAML=0, isFlat=0;
   int lno=0;
 
+  xresult = NULL;
   // TODO: make into callback?
   auto result = [](char* start, char* end)->int {
     if (!start || !end) return 0;
+    if (xresult) free(xresult);
+    xresult = strndup(start, end-start);
     printf(">>>>>>> ");
     while(*start && start < end) {
       putchar(*start);
@@ -192,6 +196,7 @@ char* xtract(char* p, char* t, int one, int level) {
   if (isFlat) printf("%% isFlat\n");
 
   printf("TT '%s'\n", t);
+  printf("PP '%s'\n", p);
   printf("c '%c'\n", peek());
 
   if (eof()) return NULL;
@@ -215,15 +220,58 @@ char* xtract(char* p, char* t, int one, int level) {
   return NULL;
 }
 
-
-
 int main() {
-  char* t = "foo: bar\n  fie: fum fish:foe\n";
-  //  char* p = "foo";
-  char* p = "fie";
+  char* txt = NULL;
+  char* pat = NULL;
+  char* res = NULL;
+  
+  FILE* f = fopen("xtract.tst", "r");
+  int len = 1024;
+  char line[len];
+  while(fgets(line, len, f)) {
+    // remove newline
+    if (*line)
+      line[strlen(line)-1] = 0;
 
-  printf("TT '%s'\n", t);
-  printf("PP '%s'\n", p);
-  char* r = xtract(p, t, 1, 0);
-  printf("RR '%s'\n", r);
+    if (line == strstr(line, "=== ")) {
+      // text to test
+      if (txt) free(txt);
+      txt = strdup(line+4);
+      printf("=== %s\n", txt);
+    } else if (strstr(line, " =>")) {
+      char* l = strdup(line);
+      // get pattern => result
+      if (pat) free(pat);
+      pat = strstr(l, " =>");
+      // split before match
+      *pat = 0;
+
+      // result is after
+      if (res) free(res);
+      res = pat+3;
+      if (*res == ' ') res++;
+
+      // point to first string
+      pat = l;
+
+      // test!
+      printf(" EXPACT: %s => %s\n", pat, res);
+      if (xresult) free(xresult);
+      xresult = NULL;
+      char* r = xtract(pat, txt, 1, 0);
+      if (xresult && 0==strcmp(xresult, res)) {
+	printf("CORRECT: %s => %s\n", pat, xresult);
+      } else {
+	printf("  ERROR: %s => %s\n", pat, xresult);
+      }
+    } else if (!*line) {
+      // empty line - fine
+    } else if (line[0] == '#') {
+      // comment
+    } else {
+      printf("%% Unrecognized line: %s\n", line);
+    }
+  }
+  
+  fclose(f);
 }
