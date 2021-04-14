@@ -1203,7 +1203,8 @@ int run(char* start, Out out) {
 auto oneline = [] (char* s, auto putt)->int {
     clock_t start = clock();
     // temporary change output method
-    jmlputchartype stored = jmlputchar;
+    //jmlputchartype stored = jmlputchar;
+    auto stored = jmlputchar;
     int reductions = 0;
     int cycles = 0;
     int r;
