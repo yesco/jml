@@ -401,7 +401,7 @@ Strings
 - [prefix abcdef abc abcd ab] => ab
 - [split a aAaBBaAa] => A BB A
 - [split-do inc a1a22a3a] => 2 23 4
-- [xml name ksajf; sadflk dsaflk <name c='foo'>FISH</name> sdfl sadf asdfdsa] => FISH
+- [xml name ksajf; sadflk dsaflk &lt;name c='foo'&gt;FISH&lt;/name&gt; sdfl sadf asdfdsa] => FISH
 
 - [substr FIRST LEN abcXzy] get substrings out
 - [substr 0 3 abcXzy] => abc, this is essentially "left"
