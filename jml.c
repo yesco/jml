@@ -58,7 +58,14 @@ typedef void (*Out)(int len, char c, char* s);
 
 typedef int (*jmlputchartype)(int c);
 
-static jmlputchartype jmlputchar;
+//static jmlputchartype jmlputchar;
+
+// A lambda wrapper putchar to get compatinble type
+auto Lputchar = [](int c)->int { return putchar(c); };
+
+//static auto jmlputchar = &Lputchar;
+jmlputchartype jmlputchar = &putchar;
+
 
 // if s != NULL append it, 
 // if len == 0 actually print c - means no need capture to later process
@@ -99,7 +106,7 @@ void myout(int len, char c, char* s) {
     } else if (len == 1) { 
         *to++ = c;
     } else {
-        jmlputchar(c);
+        (*jmlputchar)(c);
     }
     *to = 0;
 }
@@ -183,26 +190,26 @@ void fundef(char* funname, char* args, char* body, char* crtime, int logpos, cha
     if (functions_count > SIZE) {
       fprintf(stderr, "\n%%OUT OF FUNCTIONS!\n");
       exit(1);
-    } else {
-      int i = functions_count;
-      FunDef *f = &functions[functions_count++];
-
-      char iso[sizeof "2011-10-08T07:07:09Z"];
-      time_t now;
-#ifndef CC65
-      time(&now);
-      strftime(iso, sizeof iso, "%FT%TZ", gmtime(&now));
-#endif
-      // take a copy as the data comes from transient current state of program
-      f->name = strdup(funname);
-      f->args = strdup(args);
-      f->body = strdup(body);
-      f->time = crtime ? strdup(crtime) : jml_state ? strdup(iso) : NULL;
-      f->logpos = jml_state ? ++last_logpos : logpos;
-      f->user = user ? strdup(user) : NULL; // TODO: hashstrings?
-
-      if (jml_state) fprintFun(jml_state, i);
     }
+
+    int i = functions_count;
+    FunDef *f = &functions[functions_count++];
+
+    char iso[sizeof "2011-10-08T07:07:09Z"];
+    time_t now;
+#ifndef CC65
+    time(&now);
+    strftime(iso, sizeof iso, "%FT%TZ", gmtime(&now));
+#endif
+    // take a copy as the data comes from transient current state of program
+    f->name = strdup(funname);
+    f->args = strdup(args);
+    f->body = strdup(body);
+    f->time = crtime ? strdup(crtime) : jml_state ? strdup(iso) : NULL;
+    f->logpos = jml_state ? ++last_logpos : logpos;
+    f->user = user ? strdup(user) : NULL; // TODO: hashstrings?
+
+    if (jml_state) fprintFun(jml_state, i);
 }
 
 FunDef* findfun(char* funname) {
@@ -947,7 +954,10 @@ void funsubst(Out out, char* funname, char* args) {
         name[0] = 0;
         strcat(name, "data-");
         strcat(name, id);
-        fundef(name, "", data, NULL, 0, jml_user);
+        fundef(name, "", data,
+	       /*crtime*/NULL, // TODO: fill in
+	       /*logpos*/0, // TODO: fill in
+	       jml_user);
         s = data;
 	free(name);
     } else if (!strncmp(funname, "eval/", 5)) { // safe eval!
@@ -1008,7 +1018,9 @@ void funsubst(Out out, char* funname, char* args) {
             return 1; // get more...
         };
 	
-        wget(NULL, next(), result);
+	//TODO:
+        //wget(NULL, next(), result);
+	out(-1, 0, "%(wget disfunctional )%");
         return;
 #endif
     } else if (!strcmp(funname, "message")) {
@@ -1199,8 +1211,8 @@ int run(char* start, Out out) {
 // NOT! assumes one mallocated string in, it will be freed
 // no return, just output on "stdout"
 // TODO: how to handle macro def/invocations over several lines?
-//int oneline(char* s, jmlputchartype putt) {
-auto oneline = [] (char* s, auto putt)->int {
+int oneline(char* s, jmlputchartype putt) {
+//auto oneline = [] (char* s, auto putt)->int {
     clock_t start = clock();
     // temporary change output method
     //jmlputchartype stored = jmlputchar;
@@ -1322,8 +1334,24 @@ static void jmlbody(char* buff, char* method, char* path) {
 
 int doexit = 0;
 
+int _req= -1;
+
+int putt(int c) {
+  //auto putt = [&](int c)->int {
+  static int escape = 0;
+  char ch = c;
+  
+  if (escape && c == 'n') c = '\n'; //{ write(req, "<br>", 4); c = '\n'; }
+  if (escape && c == 't') c = '\t';
+  if ((escape = (c == '\\'))) return 0;
+
+  return write(_req, &ch, 1);
+}
+
 // assume path is writable
 static void jmlresponse(int req, char* method, char* path) {
+    _req= req; // for putt
+
     char* args;
     if (verbose >= 0) fprintf(stderr, "\n{------------------------------ '%s' '%s' --}", method, path);
     if (verbose > 1) fputc('\n', stderr);
@@ -1403,18 +1431,6 @@ static void jmlresponse(int req, char* method, char* path) {
     
     //fprintf(stderr, "OUT>>>%s<<<\n", out);
 
-    //int putt(int c) {
-    auto putt = [&] (int c)->int {
-        static int escape = 0;
-	char ch = c;
-
-        if (escape && c == 'n') c = '\n'; //{ write(req, "<br>", 4); c = '\n'; }
-        if (escape && c == 't') c = '\t';
-        if ((escape = (c == '\\'))) return 0;
-
-        return write(req, &ch, 1);
-    };
-
     // Cleanup state
     // TODO: make this more safe by move to init routine?
     if (jmlbody_store) {
@@ -1424,25 +1440,25 @@ static void jmlresponse(int req, char* method, char* path) {
     // Not cleaning out jmlheader_cookie
 
     // make a copy
-{
-    char* line = strdup(out);
-    //fprintf(stderr, "\n\n++++++OUT=%s\n", out);
-    //fprintf(stderr, "\n\n+++++LINE=%s\n", line);
-    if (out) free(out); end = to = out = NULL;
+    {
+      char* line = strdup(out);
+      //fprintf(stderr, "\n\n++++++OUT=%s\n", out);
+      //fprintf(stderr, "\n\n+++++LINE=%s\n", line);
+      if (out) free(out); end = to = out = NULL;
 
-    oneline(line, putt);
-    // Note: line is freed by oneline, output putt
-}
+      oneline(line, putt);
+      // Note: line is freed by oneline, output putt
+    }
 }
 #endif
 
-int putstdout(int c) {
+auto putstdout = [](int c)->int {
     static int escape = 0;
     if (escape && c == 'n') c = '\n';
     if (escape && c == 't') c = '\t';
     if ((escape = (c == '\\'))) return 0;
     return fputc(c, stdout);
-}
+};
 
 #ifndef CC65
 int loadfile(FILE* f) {
@@ -1476,7 +1492,7 @@ int main(int argc, char* argv[]) {
     jml_state_name = "jml.state";
 
     memset(functions, 0, sizeof(functions));
-    jmlputchar = putchar;
+//    jmlputchar = putchar;
 
 #ifndef CC65
     if (f) loadfile(f);
@@ -1520,9 +1536,9 @@ int main(int argc, char* argv[]) {
     }
     
     // keep last file open for append
-#ifndef CC65
+//#ifndef CC65 // TODO: wrong?
     jml_state = f;
-#endif
+//#endif
     //fprintf(stderr, "trace=%d web=%d state=%s\n", trace, web, state);
     
     // Start the web server
