@@ -532,7 +532,7 @@ char* jml_user = NULL;
 Out runout;
 
     void skipspace(char **pos) {
-        while(**pos == ' ') (void) *pos++;
+        while(**pos == ' ') (void) (*pos)++;
     }
     
     void outspace() {
