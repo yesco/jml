@@ -1464,6 +1464,7 @@ auto putstdout = [](int c)->int {
 int loadfile(FILE* f) {
   last_logpos = 0; // this is "defined" per file
   verbose--; // make it somewhat more silent during startup
+  rewind(f);
   while (f && !feof(f)) {
     char* line = freadline(f);
     int len;
@@ -1485,11 +1486,12 @@ int main(int argc, char* argv[]) {
   // parse arguments
   int argi = 1;
   int web = 0;
+
+  jml_state_name = "jml.state";
+
 #ifndef CC65
   FILE* f = fopen(jml_state_name, "a+"); // position for read beginning, write always only appends
 #endif
-
-  jml_state_name = "jml.state";
 
   memset(functions, 0, sizeof(functions));
   //    jmlputchar = putchar;
