@@ -4,7 +4,8 @@
 
 (setq jml-highlights
       '(("\\[macro" . 'font-lock-function-name-face)
-        ("<h1>\\([^<]+?\\)</h1>" . (1 'font-lock-type-face))
+        ("<\\([^>]+?\\)>" . (1 'font-lock-warning-face))
+        ;; ("<\\([^>]+?\\)>" . (1 'font-lock-regexp-grouping-backslash))
         ("\\[macro \\([^\]\s]+\\)" . (1 'font-lock-type-face))
         ("\\[\\([^\]\/\s]+\\)" . (1 'font-lock-property-use-face))
 	("@\\w+" 0 font-lock-string-face t)
