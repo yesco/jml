@@ -1,0 +1,83 @@
+NAMESPACES/FILES:
+-----------------
+kom-P
+kom-G
+kom-G4711-
+
+
+KOM: KOMference
+
+IDs:
+----
+uuid = random uuid
+tuid = time sortable uuid
+cuid = creator uid (owner?)
+
+author
+
+
+MEMBER:
+-------
+(mapping + replicated data)
+
+kom-G4711-P42 -> kom-P4711 First Dot. Last
+
+- TODO: how to get it updated?
+
+GROUP/PERSON:
+-------------
+
+TEXTS:
+------
+
+kom-Gcuid-Ttuid
+kom-G4711-Ttuid
+kom-G4711-T2732
+
+COMMENTS:
+---------
+kom-G4711-T2732-Ktuid -> kom-G4711-Ktuid
+kom-G4711-T2732-K2777 -> kom-G4711-K2777
+kom-G4711-Ktuid -> TEXT
+kom-G4711-K7777 -> TEXT
+
+TEXTML:
+-------
+<text>
+  <group>kom-G4711</group>
+  <tid>kom-G4711-K4711</tid>
+  <author>kom-G4711-P42</author>
+  <time>2024-07.. originator time?.</time>
+  <body>Ok, I agree</body>
+
+for comments:
+
+  <urtext>kom-G4711-T2732</urtext>
+  <commenting>kom-G4711-T2723</commenting>
+
+or (comment a comment)
+
+  <commenting>kom-G4711-K2723</commenting>
+
+</text>
+
+
+CRAZY SUPERKOM IDEA:
+--------------------
+
+everying is a text:
+
+TEXT
+- author
+- time
+- body
+- GROUP/PERSON
+-- members
+
+Can you "become a memmber of a text"?
+
+Means admin?
+
+How to have admins and adminsiter admins?
+- have privs?
+- or be member of group?

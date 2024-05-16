@@ -779,10 +779,15 @@ void funsubst(Out out, char* funname, char* args) {
     *(s+len) = 0;
     rest = NULL;
   } else if (!strcmp(funname, "uuid")) {
+    // TODO: uuid v7 time-ms sortable!
+    // - https://www.ietf.org/archive/id/draft-peabody-dispatch-new-uuid-format-04.html#name-uuid-version-7
+
     // TODO: consider using UUID/GUID random generator for unique ID
     // - https://github.com/marvinroger/ESP8266TrueRandom
     // This is modified from - http://stackoverflow.com/questions/7399069/how-to-generate-a-guid-in-c
     int t = 0;
+    // 30x4 bits=120bits
+    // y special, hmmmm
     char *tmpl = "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx";
     char *hex = "0123456789ABCDEF-";
     char* p = tmpl;

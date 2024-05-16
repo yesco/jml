@@ -1,0 +1,18 @@
+[macro butt TXT][button TXT TXT][/macro]
+[macro /butts]<html><body><span style='font-size:32px'>FOBAR FIEFUM [map butt aa bb cc dd ee ff gg hh]</span></body></html>[/macro]
+
+[macro /foo]<html><body><h1>foobar</h1><p>a paragraph with text, isn't it what you expected it to be? or what more can be said?</p><p>Fish fooo barcrap fl;ksdjfsd f sd fs df sd a sdf as df asdf as dasdf as df asdf asd  asddf asd  asdf asd f asdf a sdf asd f asdf asd fasd f asddf asdf asd fasdf asd  asdf END</p><p>Fish fooo barcrap fl;ksdjfsd f sd fs df sd a sdf as df asdf as dasdf as df asdf asd  asddf asd  asdf asd f asdf a sdf asd f asdf asd fasd f asddf asdf asd fasdf asd  asdf END</p><p>Fish fooo barcrap fl;ksdjfsd f sd fs df sd a sdf as df asdf as dasdf as df asdf asd  asddf asd  asdf asd f asdf a sdf asd f asdf asd fasd f asddf asdf asd fasdf asd  asdf END</p><button>fish</button<br></body></html>[/macro]
+
+[macro /bar X][map li FOO BAR FIE FUM][/macro]
+
+[macro td @txt]<td style='text-align:center;valign:center;font-size:2.5em;font-weight:bold;height:3em;'>@txt</td>[/macro]
+
+[macro td @txt]<td style='text-align:center;valign:center;font-size:4vw;font-weight:bold;height:3em;'>@txt</td>[/macro]
+
+[macro gline @all]<tr>[map td @all]</tr>[/macro]
+
+[macro grida]<table width="100%"> [gline 1 2 3 4 5 6 7 8] [gline 2 3 4 5 6 7 8 1] [gline 3 4 5 6 7 8 1 2] [gline 4 5 6 7 8 1 2 3] [gline 5 6 7 8 1 2 3 4] [gline 6 7 8 1 2 3 4 5] [gline 7 8 1 2 3 4 5 6] [gline 8 1 2 3 4 5 6 7]</table>[/macro]
+
+[macro grid]<table width="100%" border="3px solid black"> [gline first second nth rest map filter reduce reverse] [gline length bytes lower upper after before prefix match] [gline match-do filter-do subst-do split split-do concat join substr] [gline empty has is number alpha uuid ignore quote] [gline 7 8 9 &lt; &lt;= = equal cmp] [gline 4 5 6 != =&gt; &gt; if] [gline 1 2 3 * / = inc dec] [gline , 0 . 4 + - identity RET] [gline - - - - - - - -] [gline min max and or xor not ] [gline lt lte gte gt big small biggest smallest] [gline data datas funcs have fbody time 7 8] [gline decode encrypt encrypt-eval eval/ wget message cookie param] [gline link bold p b i li button [gline h1 h2 h3 h4 dt dd vspace hspace]  [gline unhtml unquote form form-get input isinde hidden submit] [gline textarea textare-mini set-cookie 4 5 6 7 8]</table>[/macro]
+
+[macro pui]<html><body style='font-size:2em;'>[grid]</body></html>[/macro]
