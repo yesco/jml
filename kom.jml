@@ -1,0 +1,54 @@
+[-- kom --]
+
+[-- macro kom-new $gid $urtid $commenting @text --]
+
+[-- TODO: conflict?]
+[-- gtid?]
+[macro kom-new-id $gid $aid]
+  kom-G$gid-T[scs [time]]-A$aid
+  [/macro]
+
+[macro kom-author $gtid]
+  [match -A(.*) $gtid]
+  [/macro]
+
+[macro datasaveid $id @data]
+  [ignore [data $id @data]]$id
+  [/macro]
+
+[macro kom-new $gid $aid @text]
+  [datasaveid [kom-new-id $gid $aid] @text]
+  [/macro]
+
+[-- TODO: each data is time stamped=ftime, redundant... hmmm. if part of ID...]
+[macro kom-text $gtid]
+  <b>[kom-author $gtid]</b>
+  at [hhmm [ftime $gtid]]:<br/>
+  [data-$gtid] [-- TODO: iframe? --]
+  <hr noshade>
+  [/macro]
+
+[macro kom-group chat-list $gid]
+  [map kom-text [datas kom-$gid-]]
+  [/macro]
+
+[macro /kom-new-text $gid @msg]
+  [/kom-group $chan [ignore [kom-new $gid [cookie user] @msg]]]
+  [/macro]
+
+[macro /kom-group $gid]
+  [sys-header [button-active /kom Kom] / $gid]
+  [kom-group $gid]
+  <ul>
+    [form /kom-new [hidden gid $gid]
+      [b New Post:]<br>
+      [textarea-mini text]
+      [submit send]]
+  </ul>
+  [footer]
+  [/macro]
+
+[macro /kom $gid]
+  [[if [empty $gid] kom-list-unread kom-group] $gid]
+  [/macro]
+

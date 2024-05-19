@@ -1117,6 +1117,7 @@ void funsubst(Out out, char* funname, char* args) {
     return;        
 #ifndef CC65
   } else if (!strcmp(funname, "time")) {
+    // TODO: timems? time local unique?
     time_t now;
     time(&now);
     char iso[sizeof "2011-10-08T07:07:09Z"];
