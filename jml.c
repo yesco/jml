@@ -1530,6 +1530,7 @@ int main(int argc, char* argv[]) {
       argi++;
       web = -1;
     } else if (argv[argi][0] != '-') {
+      // last file named is where we'll store new state
       // Read previous state(s)
       jml_state_name = argv[argi];
       argi++;
