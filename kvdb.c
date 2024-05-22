@@ -43,11 +43,32 @@ data ddup(data d) {
   return d;
 }
 
+void dfree(data *d) { free(d->v); d->v= NULL; }
+
 // own: free k.d, v.d later
-void kv_add(data k, data v, int own) {
+void kv_put(data k, data v, int own) {
   assert(kvn<=KVSIZE);
   kvstore[kvn].k= own?k:ddup(k);
-  kvstore[kvn].v= own?k:ddup(v);
+  kvstore[kvn].v= own?v:ddup(v);
+  kvn++;
+}
+
+void kv_puts(char* k, char* v, int own) {
+  data kd= {0, k}, vd= {0, v};
+  kv_put(kd, vd, own);
+}
+
+data kv_get(data k) {
+  for(int i=0; i<kvn; i++)
+    // TODO: len
+    if (0==strcmp(kvstore[i].k.v,k.v)) return kvstore[i].v;
+  return (data){0, NULL};
+}
+
+char* kv_gets(char* k) {
+  data kd= {0, k};
+  data vd= kv_get(kd);
+  return vd.v;
 }
 
 // tests
@@ -55,8 +76,28 @@ int main(int argc, char** argv) {
   data k={0},v={0};
   k.v= "0000001st";
   v.v= "first";
-  kv_add(k, v, 0);
+  kv_put(k, v, 0);
+  kv_puts("0000002nd", "second", 0);
+
+  data r= kv_get(k);
+  data kk= {0, "0000002nd"};
+  data rr= kv_get(k);
+
+  // value get
+  printf("%s => %s\n", k.v, r.v);
+  printf("%s => %s\n", kk.v, rr.v);
+  // string get
+  printf("%s => %s\n", "0000001st", kv_gets("0000001st"));
+  printf("%s => %s\n", "0000002nd", kv_gets("0000002nd"));
+  // get non-exist
+  printf("%s => %s\n", "0000003nd", kv_gets("0000003nd"));
+
+  // short key
+  data ks= {3, "0000002nd"};
+  data vs= {0, "nullth"};
+  kv_put(ks, vs, 0);
+
+  printf("%s => %s\n", "000", kv_gets("000"));
 
   return 9;
 }
-
