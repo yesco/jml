@@ -19,6 +19,34 @@
 // - concurrent writers
 // - super efficiency
 
+// Possible data formats:
+// 1. plain "text" (no 0 no NL)
+//    + can sort do unix stuff
+//    + .sorted.4711 till offset
+//    - quote 9 and NL
+//    - => w mmap ret needs malloc
+// 2. prefix compressed keys
+//    - key return have to malloc
+//    - non unix sortable
+//    - "have to be sorted"
+//
+//  RECORD:
+//    
+//    checksum:int32 (post reclen)
+//    reclen:int
+//
+//    <prefix n from prev>:int
+//    UABytes:int
+//    <Unique Array Bytes>
+//
+//    '=' just because
+//
+//    DABytes: int
+//    <Data Array Bytes>
+//
+//    newline just because
+
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <assert.h>
@@ -36,7 +64,7 @@ typedef struct kv {
 #define KVSIZE 1024
 // we own all values
 kv kvstore[KVSIZE]= {0};
-int kvn= 0;
+int kvn= 0, kvorder= 1;
 
 // normalizes
 // if d.len == 0 it's a string if have pointer, set len
@@ -56,6 +84,8 @@ void kv_put(data k, data v, int own) {
   kvstore[kvn].k= ddup(k, own);
   kvstore[kvn].v= ddup(v, own);
   kvn++;
+  // TODO: added is highest?
+  kvorder= 0;
 }
 
 void kv_puts(char* k, char* v, int own) {
@@ -85,6 +115,90 @@ char* kv_gets(char* k) {
   data vd= kv_get(kd);
   return vd.v;
 }
+
+// read positive int
+// 7 bits lo data, hi cont bit
+// (varint encoding)
+// NOTE: Not good for negatives...
+
+// TODO: test
+int readint(FILE* f) {
+  int c= fgetc(f);
+  assert(c!=EOF);
+  return (c&128) + (c<128? 0: 128*readint(f));
+}
+
+// TODO: test
+// TODO: howto calc CS? (write to  buffer?)
+int writeint(FILE* f, int i) {
+  assert(i>=0);
+  int c= 0;
+  do {
+    int n= fputc((i&127)+(i>=128?128:0), f);
+    assert(n==1);
+    i>>= 7;
+  } while(i);
+  return 1;
+}
+
+// TODO: test
+kv kv_read(FILE* f) {
+  int cs= readint(f);
+  int rlen= readint(f);
+
+  int prefix= readint(f);
+  int klen= readint(f);
+  data k={prefix+klen, malloc(prefix+klen)};
+  assert(k.v);
+
+  // get prefix from prev key
+  if (prefix) {
+    assert(kvn);
+    int plen= kvstore[kvn-1].k.len;
+    assert(plen==prefix);
+    memcpy(k.v, kvstore[kvn-1].k.v, prefix);
+  }
+
+  // must have as it's bigger
+  assert(klen);
+  int kn= fread(k.v+prefix, 1, klen, f);
+  assert(kn==klen);
+
+  // expect '='
+  int eq= fgetc(f);
+  assert(eq=='=');
+
+  // read value
+  int vlen= readint(f);
+  // TODO: deleted marker? == 0
+  assert(vlen);
+  data v={vlen, malloc(vlen)};
+  assert(v.v);
+  int vn= fread(v.v, 1, vlen, f);
+  assert(vn==vlen);
+
+  // expect NL
+  int nl= fgetc(f);
+  assert(nl=='\n');
+
+  // TODO: check checksum
+  kv r= {k, v};
+  return r;
+}
+
+void kv_readfile(FILE* f) {
+  while(!feof(f)) {
+    kv r= kv_read(f);
+    if (!r.v.v) break;
+
+    assert(kvn<KVSIZE);
+    kvstore[kvn]= r;
+    kvn++;
+  }
+}
+
+
+
 
 // tests
 int main(int argc, char** argv) {
