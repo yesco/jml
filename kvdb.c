@@ -2,13 +2,15 @@
 //
 // Goals:
 // - simple small C code
-// - filesystem based
+// - range search
+// - append only filesystem based
 // - many readers same machine
 // - distributable ("tail -f")
 // - single writer
 // - multi reader concurrent
 // - transactions - ACID
 // - crash safe/recoverable
+// - timestamped
 //
 // Non-Goals:
 // - thread safe
@@ -32,14 +34,17 @@ typedef struct kv {
 } kv;
 
 #define KVSIZE 1024
+// we own all values
 kv kvstore[KVSIZE]= {0};
 int kvn= 0;
 
-data ddup(data d) {
-  if (d.len)
+// normalizes
+// if d.len == 0 it's a string if have pointer, set len
+data ddup(data d, int own) {
+  // fix length
+  d.len= d.v? (d.len?d.len:strlen(d.v)) : 0;
+  if (!own && d.v)
     d.v= memcpy(malloc(d.len), d.v, d.len);
-  else
-    d.v= strdup(d.v);
   return d;
 }
 
@@ -48,20 +53,30 @@ void dfree(data *d) { free(d->v); d->v= NULL; }
 // own: free k.d, v.d later
 void kv_put(data k, data v, int own) {
   assert(kvn<=KVSIZE);
-  kvstore[kvn].k= own?k:ddup(k);
-  kvstore[kvn].v= own?v:ddup(v);
+  kvstore[kvn].k= ddup(k, own);
+  kvstore[kvn].v= ddup(v, own);
   kvn++;
 }
 
 void kv_puts(char* k, char* v, int own) {
+  assert(k);
+  assert(v); // TODO: == delete?
   data kd= {0, k}, vd= {0, v};
   kv_put(kd, vd, own);
 }
 
 data kv_get(data k) {
-  for(int i=0; i<kvn; i++)
-    // TODO: len
-    if (0==strcmp(kvstore[i].k.v,k.v)) return kvstore[i].v;
+  k= ddup(k, 1); // normalize
+  size_t len= k.len;
+  // get NULL? == first? == min?
+  assert(len);
+  assert(k.v);
+  
+  for(int i=0; i<kvn; i++) {
+    size_t clen= kvstore[i].k.len;
+    if (clen==len && 0==memcmp(kvstore[i].k.v, k.v, len)) return kvstore[i].v;
+  }
+  // no match
   return (data){0, NULL};
 }
 
