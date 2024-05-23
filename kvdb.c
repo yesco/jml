@@ -70,14 +70,20 @@ kv kv_read(FILE* f) {
 }
 
 void kv_readfile(FILE* f) {
-  while(!feof(f)) {
-    kv r= kv_read(f);
-    if (!r.v) break;
-
+  char* ln= 0; size_t z=0;
+  while(getline(&ln, &z, f)>=0) {
+    char *key=0, *val=0;
+    long ts=0;
+    int n= sscanf(ln, "%ms %ld %m[^\n]\n", &key, &ts, &val);
+    printf("READ:\n  key=%s\n  ts=%ld\n  val=%s\n", key, ts, val);
+    // TODO: return ts?
+    // TODO: deleted marker?
+    kv r= {key, val};
     assert(kvn<KVSIZE);
     kvstore[kvn]= r;
     kvn++;
   }
+  free(ln);
 }
 
 
@@ -98,6 +104,8 @@ int main(int argc, char** argv) {
   printf("%s => %s\n", kk, rr);
   // get non-exist
   printf("%s => %s\n", "0000003nd", kv_get("0000003nd"));
+
+  kv_readfile(stdin);
 
   return 0;
 }
