@@ -1,0 +1,118 @@
+# Prerequisites
+*.d
+
+# Object files
+*.o
+*.ko
+*.obj
+*.elf
+
+# Linker output
+*.ilk
+*.map
+*.exp
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Libraries
+*.lib
+*.a
+*.la
+*.lo
+
+# Shared objects (inc. Windows DLLs)
+*.dll
+*.so
+*.so.*
+*.dylib
+
+# Executables
+*.exe
+*.out
+*.app
+*.i*86
+*.x86_64
+*.hex
+jml
+
+# Debug files
+*.dSYM/
+*.su
+*.idb
+*.pdb
+.alf
+.all
+
+# Kernel Module Compile Results
+*.mod*
+*.cmd
+.tmp_versions/
+modules.order
+Module.symvers
+Mkfile.old
+dkms.conf
+diff
+diff.c
+WWW
+Cache
+fil
+fil.c
+test.c
+test.diff
+test.new
+stderr
+stdout
+wget-log*
+index.html*
+package-lock.json
+node_modules
+
+# - binaries
+minisquel
+minisquel-debug
+*.x
+a.out
+Graphics/font8x8/render
+sql
+sql.log.csv
+wcode
+
+# - temp files
+*#*
+*~
+
+# - copyrighted can't checkin
+Tests/tables-advanced.moz
+Tests/html.com.tables
+
+DuckDB/
+IMDB/
+
+Tests/*.com
+Tests/*.org
+Tests/*.se
+Tests/*.simple
+
+# - data files
+.wlog
+.whistory
+.wlinks
+.*.c
+.stdout
+.stderr
+#.*  # hmm ignores .gitignore?
+
+Graphics/*.pnm
+Graphics/*.gif
+Graphics/*.ico
+Graphics/*.jpeg
+Graphics/*.jpg
+Graphics/*.pbm
+Graphics/*.png
+Graphics/*.ANSI
+
+
+
+
